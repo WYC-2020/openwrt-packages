@@ -1,8 +1,18 @@
+# Copyright (C) 2018-2020 L-WRT Team
+# #
+# # This is free software, licensed under the GNU General Public License v3.
+# #
+#
+
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-ssr-plus
 PKG_VERSION:=181
 PKG_RELEASE:=4
+PKG_DATE:=20201224
+
+PKG_BUILD_DIR := $(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -56,7 +66,6 @@ PKG_CONFIG_DEPENDS:= \
 	CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server
 
 define Package/$(PKG_NAME)
- 	SECTION:=luci
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
 	TITLE:=SS/SSR/V2Ray/Xray/Trojan/NaiveProxy/Socks5/Tun LuCI interface
@@ -77,6 +86,9 @@ endef
 define Build/Prepare
 endef
 
+define Build/Configure
+endef
+
 define Build/Compile
 endef
 
@@ -86,7 +98,9 @@ define Package/$(PKG_NAME)/conffiles
 endef
 
 define Package/$(PKG_NAME)/install
-	
+	$(INSTALL_DIR) $(1)/etc/config
+        $(INSTALL_CONF) ./root/etc/config/shadowsocksr $(1)/etc/config/shadowsocksr
+
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
 	cp -pR ./luasrc/* $(1)/usr/lib/lua/luci
 
