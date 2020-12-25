@@ -94,7 +94,16 @@ endef
 
 define Package/$(PKG_NAME)/conffiles
 /etc/config/shadowsocksr
-/etc/ssr/
+/etc/ssr/ad.conf
+/etc/ssr/black.list
+/etc/ssr/china_ssr.txt
+/etc/ssr/deny.list
+/etc/ssr/gfw_base.conf
+/etc/ssr/gfw_list.conf
+/etc/ssr/netflix.list
+/etc/ssr/netflixip.list
+/etc/ssr/oversea_list.conf
+/etc/ssr/white.list
 endef
 
 define Package/$(PKG_NAME)/install
