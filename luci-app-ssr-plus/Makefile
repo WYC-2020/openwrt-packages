@@ -93,8 +93,8 @@ define Build/Compile
 endef
 
 define Package/$(PKG_NAME)/conffiles
-	/etc/config/shadowsocksr
-	/etc/ssr/
+/etc/config/shadowsocksr
+/etc/ssr/
 endef
 
 define Package/$(PKG_NAME)/install
