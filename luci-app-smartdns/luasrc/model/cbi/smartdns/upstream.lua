@@ -123,8 +123,8 @@ o:depends("type", "https")
 
 ---- other args
 o = s:option(Value, "addition_arg", translate("Additional Server Args"), translate("Additional Args for upstream dns servers"))
-o.default     = ""
+o.default     = "-exclude-default-group"
 o.rempty      = true
-o.optional    = true
+-- o.optional    = true
 
 return m
