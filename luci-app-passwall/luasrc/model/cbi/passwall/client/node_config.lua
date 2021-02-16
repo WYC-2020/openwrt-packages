@@ -128,14 +128,21 @@ balancing_node:depends("protocol", "_balancing")
 
 -- 分流
 uci:foreach(appname, "shunt_rules", function(e)
-    o = s:option(ListValue, e[".name"], '<a href="../shunt_rules/' .. e[".name"] .. '">' .. translate(e.remarks) .. "</a>")
-    o:value("nil", translate("Close"))
-    for k, v in pairs(nodes_table) do o:value(v.id, v.remarks) end
+    o = s:option(ListValue, e[".name"], string.format('* <a href="%s" target="_blank">%s</a>', api.url("shunt_rules", e[".name"]), translate(e.remarks)))
+    o:value("nil", translate("Default"))
+    o:value("_direct", translate("Direct Connection"))
+    o:value("_blackhole", translate("Blackhole"))
     o:depends("protocol", "_shunt")
 
-    o = s:option(Flag, e[".name"] .. "_proxy", translate(e.remarks) .. translate("Preproxy"), translate("Use the default node for the transit."))
-    o.default = 0
-    o:depends("protocol", "_shunt")
+    if #nodes_table > 0 then
+        _proxy = s:option(Flag, e[".name"] .. "_proxy", translate(e.remarks) .. translate("Preproxy"), translate("Use the default node for the transit."))
+        _proxy.default = 0
+
+        for k, v in pairs(nodes_table) do
+            o:value(v.id, v.remarks)
+            _proxy:depends(e[".name"], v.id)
+        end
+    end
 end)
 
 shunt_tips = s:option(DummyValue, "shunt_tips", " ")
@@ -146,17 +153,19 @@ end
 shunt_tips:depends("protocol", "_shunt")
 
 default_node = s:option(ListValue, "default_node", translate("Default") .. " " .. translate("Node"))
-default_node:value("nil", translate("Close"))
+default_node:value("_direct", translate("Direct Connection"))
+default_node:value("_blackhole", translate("Blackhole"))
 for k, v in pairs(nodes_table) do default_node:value(v.id, v.remarks) end
 default_node:depends("protocol", "_shunt")
 
-default_proxy = s:option(Flag, "default_proxy", translate("Default") .. translate("Node") .. translate("Preproxy"), translate("Use the under node for the transit."))
-default_proxy.default = 0
-default_proxy:depends("protocol", "_shunt")
-
-o = s:option(ListValue, "main_node", " ")
-for k, v in pairs(nodes_table) do o:value(v.id, v.remarks) end
-o:depends("default_proxy", "1")
+if #nodes_table > 0 then
+    o = s:option(ListValue, "main_node", translate("Default") .. " " .. translate("Node") .. translate("Preproxy"), translate("Use this node proxy to forward the default node."))
+    o:value("nil", translate("Close"))
+    for k, v in pairs(nodes_table) do
+        o:value(v.id, v.remarks)
+        o:depends("default_node", v.id)
+    end
+end
 
 domainStrategy = s:option(ListValue, "domainStrategy", translate("Domain Strategy"))
 domainStrategy:value("AsIs")
