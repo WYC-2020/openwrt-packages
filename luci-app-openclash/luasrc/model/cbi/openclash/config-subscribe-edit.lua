@@ -52,7 +52,7 @@ o.description = translate("Convert Subscribe Online With Template, Mix Proxies a
 o.default=0
 
 ---- Convert Address
-o = s:option(ListValue, "convert_address", translate("Convert Address"))
+o = s:option(Value, "convert_address", translate("Convert Address"))
 o.rmempty     = true
 o.description = font_red..bold_on..translate("Note: There is A Risk of Privacy Leakage in Online Convert")..bold_off..font_off
 o:depends("sub_convert", "1")
@@ -133,6 +133,14 @@ o.rmempty = true
 o = s:option(DynamicList, "ex_keyword", font_red..bold_on..translate("Exclude Keyword Match")..bold_off..font_off)
 o.description = font_red..bold_on..translate("eg: hk or tw&bgp")..bold_off..font_off
 o.rmempty = true
+
+---- de_exkey
+o = s:option(MultiValue, "de_ex_keyword", font_red..bold_on..translate("Exclude Keyword Match Default")..bold_off..font_off)
+o.rmempty = true
+o:value("过期时间")
+o:value("剩余流量")
+o:value("TG群")
+o:value("官网")
 
 local t = {
     {Commit, Back}
