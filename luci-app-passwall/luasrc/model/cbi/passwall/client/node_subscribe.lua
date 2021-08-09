@@ -1,5 +1,22 @@
 local api = require "luci.model.cbi.passwall.api.api"
 local appname = api.appname
+local has_trojan_plus = api.is_finded("trojan-plus")
+local has_v2ray = api.is_finded("v2ray")
+local has_xray = api.is_finded("xray")
+local has_trojan_go = api.is_finded("trojan-go")
+local trojan_type = {}
+if has_trojan_plus then
+    trojan_type[#trojan_type + 1] = "trojan-plus"
+end
+if has_v2ray then
+    trojan_type[#trojan_type + 1] = "v2ray"
+end
+if has_xray then
+    trojan_type[#trojan_type + 1] = "xray"
+end
+if has_trojan_go then
+    trojan_type[#trojan_type + 1] = "trojan-go"
+end
 
 m = Map(appname)
 
@@ -45,6 +62,13 @@ o = s:option(Flag, "allowInsecure", translate("allowInsecure"), translate("Wheth
 o.default = "1"
 o.rmempty = false
 
+if #trojan_type > 0 then
+    o = s:option(ListValue, "trojan_type", translate("Trojan Node Use Type"))
+    for key, value in pairs(trojan_type) do
+        o:value(value, translate(value:gsub("^%l",string.upper)))
+    end
+end
+
 ---- Manual subscription
 o = s:option(Button, "_update", translate("Manual subscription"))
 o.inputstyle = "apply"
@@ -71,11 +95,25 @@ s.sortable = true
 s.template = "cbi/tblsection"
 
 o = s:option(Flag, "enabled", translate("Enabled"))
+o.default = "1"
 o.rmempty = false
 
 o = s:option(Value, "remark", translate("Subscribe Remark"))
 o.width = "auto"
 o.rmempty = false
+
+o = s:option(DummyValue, "_node_count")
+o.rawhtml = true
+o.cfgvalue = function(t, n)
+    local remark = m:get(n, "remark") or ""
+    local num = 0
+    m.uci:foreach(appname, "nodes", function(s)
+        if s["add_from"] ~= "" and s["add_from"] == remark then
+            num = num + 1
+        end
+    end)
+    return string.format("<span title='%s' style='color:red'>%s</span>", remark .. " " .. translate("Node num") .. ": " .. num, num)
+end
 
 o = s:option(Value, "url", translate("Subscribe URL"))
 o.width = "auto"

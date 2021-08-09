@@ -1,5 +1,7 @@
 local api = require "luci.model.cbi.passwall.api.api"
 local appname = api.appname
+local sys = api.sys
+local datatypes = api.datatypes
 
 m = Map(appname)
 
@@ -31,14 +33,22 @@ function s.create(e, t)
 end
 
 function s.remove(e, t)
-    s.map.proceed = true
-    s.map:del(t)
-    luci.http.redirect(api.url("node_list"))
+    m.uci:foreach(appname, "haproxy_config", function(s)
+        if s["lbss"] and s["lbss"] == t then
+            m:del(s[".name"])
+        end
+    end)
+    for k,node_id in ipairs(m:get("@auto_switch[0]", "tcp_node") or {}) do
+        if node_id and node_id == t then
+            sys.call(string.format("uci -q del_list %s.@auto_switch[0].tcp_node='%s'", appname, node_id))
+        end
+    end
+    TypedSection.remove(e, t)
 end
 
 s.sortable = true
 -- 简洁模式
-o = s:option(DummyValue, "add_mode", "")
+o = s:option(DummyValue, "add_from", "")
 o.cfgvalue = function(t, n)
     local v = Value.cfgvalue(t, n)
     if v and v ~= '' then
@@ -60,7 +70,7 @@ o.cfgvalue = function(t, n)
     local remarks = m:get(n, "remarks") or ""
     local type = m:get(n, "type") or ""
     str = str .. string.format("<input type='hidden' id='cbid.%s.%s.type' value='%s'/>", appname, n, type)
-    if type == "Xray" then
+    if type == "V2ray" or type == "Xray" then
         local protocol = m:get(n, "protocol")
         if protocol == "_balancing" then
             protocol = translate("Balancing")
@@ -93,7 +103,7 @@ o.cfgvalue = function(t, n)
 end
 
 ---- Ping
-o = s:option(DummyValue, "ping", translate("Latency"))
+o = s:option(DummyValue, "ping")
 o.width = "8%"
 o.rawhtml = true
 o.cfgvalue = function(t, n)

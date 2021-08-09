@@ -1,5 +1,6 @@
 local api = require "luci.model.cbi.passwall.api.api"
 local appname = api.appname
+local has_xray = api.is_finded("xray")
 
 m = Map(appname)
 -- [[ Rule Settings ]]--
@@ -23,6 +24,8 @@ o.default = "https://cdn.jsdelivr.net/gh/YW5vbnltb3Vz/domain-list-community@rele
 o = s:option(Value, "chnroute_url", translate("China IPs(chnroute) Update URL"))
 o:value("https://ispip.clang.cn/all_cn.txt", translate("Clang.CN"))
 o:value("https://ispip.clang.cn/all_cn_cidr.txt", translate("Clang.CN.CIDR"))
+o:value("https://cdn.jsdelivr.net/gh/soffchen/GeoIP2-CN@release/CN-ip-cidr.txt", translate("soffchen/GeoIP2-CN"))
+o:value("https://cdn.jsdelivr.net/gh/Hackl0us/GeoIP2-CN@release/CN-ip-cidr.txt", translate("Hackl0us/GeoIP2-CN"))
 o.default = "https://ispip.clang.cn/all_cn.txt"
 
 ----chnroute6 URL
@@ -54,21 +57,31 @@ for e = 0, 23 do o:value(e, e .. translate("oclock")) end
 o.default = 0
 o:depends("auto_update", true)
 
-o = s:option(Value, "xray_location_asset", translate("Location of Xray asset"), translate("This variable specifies a directory where geoip.dat and geosite.dat files are."))
-o.default = "/usr/share/xray/"
-o.rmempty = false
+if has_xray then
+    o = s:option(Value, "v2ray_location_asset", translate("Location of V2ray/Xray asset"), translate("This variable specifies a directory where geoip.dat and geosite.dat files are."))
+    o.default = "/usr/share/xray/"
+    o.rmempty = false
+    
+    s = m:section(TypedSection, "shunt_rules", "V2ray/Xray " .. translate("Shunt Rule"), "<a style='color: red'>" .. translate("Please note attention to the priority, the higher the order, the higher the priority.") .. "</a>")
+    s.template = "cbi/tblsection"
+    s.anonymous = false
+    s.addremove = true
+    s.sortable = true
+    s.extedit = api.url("shunt_rules", "%s")
+    function s.create(e, t)
+        TypedSection.create(e, t)
+        luci.http.redirect(e.extedit:format(t))
+    end
+    function s.remove(e, t)
+        m.uci:foreach(appname, "nodes", function(s)
+            if s["protocol"] and s["protocol"] == "_shunt" then
+                m:del(s[".name"], t)
+            end
+        end)
+        TypedSection.remove(e, t)
+    end
 
-s = m:section(TypedSection, "shunt_rules", "Xray " .. translate("Shunt Rule"), "<a style='color: red'>" .. translate("Please note attention to the priority, the higher the order, the higher the priority.") .. "</a>")
-s.template = "cbi/tblsection"
-s.anonymous = false
-s.addremove = true
-s.sortable = true
-s.extedit = api.url("shunt_rules", "%s")
-function s.create(e, t)
-    TypedSection.create(e, t)
-    luci.http.redirect(e.extedit:format(t))
+    o = s:option(DummyValue, "remarks", translate("Remarks"))
 end
-
-o = s:option(DummyValue, "remarks", translate("Remarks"))
 
 return m

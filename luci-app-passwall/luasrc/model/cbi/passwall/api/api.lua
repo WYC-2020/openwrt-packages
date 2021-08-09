@@ -1,10 +1,11 @@
 module("luci.model.cbi.passwall.api.api", package.seeall)
-local fs = require "nixio.fs"
-local sys = require "luci.sys"
-local uci = require"luci.model.uci".cursor()
-local util = require "luci.util"
-local datatypes = require "luci.cbi.datatypes"
-local i18n = require "luci.i18n"
+fs = require "nixio.fs"
+sys = require "luci.sys"
+uci = require"luci.model.uci".cursor()
+util = require "luci.util"
+datatypes = require "luci.cbi.datatypes"
+jsonc = require "luci.jsonc"
+i18n = require "luci.i18n"
 
 appname = "passwall"
 curl = "/usr/bin/curl"
@@ -37,21 +38,40 @@ function is_exist(table, value)
     return false
 end
 
-function get_args(arg, myarg)
+function repeat_exist(table, value)
+    local count = 0
+    for index, k in ipairs(table) do
+        if k:find("-") and k == value then
+            count = count + 1
+        end
+    end
+    if count > 1 then
+        return true
+    end
+    return false
+end
+
+function get_args(arg)
     local var = {}
     for i, arg_k in pairs(arg) do
         if i > 0 then
-            if is_exist(myarg, arg_k) == true then
-                local v = arg[i + 1]
-                if v then
-                    if is_exist(myarg, v) == false then
-                        var[arg_k] = v
-                    end
+            local v = arg[i + 1]
+            if v then
+                if repeat_exist(arg, v) == false then
+                    var[arg_k] = v
                 end
             end
         end
     end
     return var
+end
+
+function strToTable(str)
+    if str == nil or type(str) ~= "string" then
+        return {}
+    end
+    
+    return loadstring("return " .. str)()
 end
 
 function is_normal_node(e)
@@ -81,6 +101,22 @@ function get_ip_type(ip)
     return ""
 end
 
+function is_mac(mac)
+    return datatypes.macaddr(mac)
+end
+
+function ip_or_mac(e)
+    if e then
+        if get_ip_type(e) == "4" then
+            return "ip"
+        end
+        if is_mac(e) then
+            return "mac"
+        end
+    end
+    return ""
+end
+
 function get_valid_nodes()
     local nodes_ping = uci_get_type("global_other", "nodes_ping") or ""
     local nodes = {}
@@ -97,7 +133,7 @@ function get_valid_nodes()
                 if datatypes.ipaddr(address) or datatypes.hostname(address) then
                     local type2 = e.type
                     local address2 = address
-                    if type2 == "Xray" and e.protocol then
+                    if (type2 == "V2ray" or type2 == "Xray") and e.protocol then
                         local protocol = e.protocol
                         if protocol == "vmess" then
                             protocol = "VMess"
@@ -135,7 +171,7 @@ function get_full_node_remarks(n)
             remarks = "%s：[%s] " % {i18n.translatef(n.type .. n.protocol), n.remarks}
         else
             local type2 = n.type
-            if n.type == "Xray" and n.protocol then
+            if (n.type == "V2ray" or n.type == "Xray") and n.protocol then
                 local protocol = n.protocol
                 if protocol == "vmess" then
                     protocol = "VMess"
@@ -212,6 +248,31 @@ function clone(org)
     local res = {}
     copy(org, res)
     return res
+end
+
+function get_v2ray_path()
+    local path = uci_get_type("global_app", "v2ray_file")
+    return path
+end
+
+function get_v2ray_version(file)
+    if file == nil then file = get_v2ray_path() end
+    chmod_755(file)
+    if fs.access(file) then
+        if file == get_v2ray_path() then
+            local md5 = sys.exec("echo -n $(md5sum " .. file .. " | awk '{print $1}')")
+            if fs.access("/tmp/psw_" .. md5) then
+                return sys.exec("echo -n $(cat /tmp/psw_%s)" % md5)
+            else
+                local version = sys.exec("echo -n $(%s -version | awk '{print $2}' | sed -n 1P)" % file)
+                sys.call("echo '" .. version .. "' > " .. "/tmp/psw_" .. md5)
+                return version
+            end
+        else
+            return sys.exec("echo -n $(%s -version | awk '{print $2}' | sed -n 1P)" % file)
+        end
+    end
+    return ""
 end
 
 function get_xray_path()

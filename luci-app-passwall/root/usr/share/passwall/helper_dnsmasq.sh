@@ -1,8 +1,5 @@
 #!/bin/sh
 
-DNSMASQ_PATH=/etc/dnsmasq.d
-TMP_DNSMASQ_PATH=/var/etc/dnsmasq-passwall.d
-
 backup_servers() {
 	DNSMASQ_DNS=$(uci show dhcp | grep "@dnsmasq" | grep ".server=" | awk -F '=' '{print $2}' | sed "s/'//g" | tr ' ' ',')
 	if [ -n "${DNSMASQ_DNS}" ]; then
@@ -15,7 +12,7 @@ restore_servers() {
 	OLD_SERVER=$(uci -q get $CONFIG.@global[0].dnsmasq_servers | tr "," " ")
 	for server in $OLD_SERVER; do
 		uci -q del_list dhcp.@dnsmasq[0].server=$server
-		uci add_list dhcp.@dnsmasq[0].server=$server
+		uci -q add_list dhcp.@dnsmasq[0].server=$server
 	done
 	uci commit dhcp
 	uci -q delete $CONFIG.@global[0].dnsmasq_servers
@@ -23,20 +20,33 @@ restore_servers() {
 }
 
 logic_restart() {
+	local no_log
+	eval_set_val $@
+	_LOG_FILE=$LOG_FILE
+	[ -n "$no_log" ] && LOG_FILE="/dev/null"
 	if [ -f "$TMP_PATH/default_DNS" ]; then
 		backup_servers
-		sed -i "/list server/d" /etc/config/dhcp >/dev/null 2>&1
+		#sed -i "/list server/d" /etc/config/dhcp >/dev/null 2>&1
+		for server in $(uci -q get dhcp.@dnsmasq[0].server); do
+			[ -n "$(echo $server | grep '\/')" ] || uci -q del_list dhcp.@dnsmasq[0].server="$server" 
+		done
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
 		restore_servers
 	else
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	fi
 	echolog "重启 dnsmasq 服务"
+	LOG_FILE=${_LOG_FILE}
 }
 
 restart() {
+	local no_log
+	eval_set_val $@
+	_LOG_FILE=$LOG_FILE
+	[ -n "$no_log" ] && LOG_FILE="/dev/null"
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	echolog "重启 dnsmasq 服务"
+	LOG_FILE=${_LOG_FILE}
 }
 
 gen_dnsmasq_items() {
@@ -62,7 +72,7 @@ gen_dnsmasq_items() {
 	'
 }
 
-gen_dnsmasq_fake_items() {
+gen_dnsmasq_address_items() {
 	local fwd_dns=${1}; shift 1
 	local outf=${1}; shift 1
 
@@ -91,7 +101,7 @@ add() {
 		echolog "  - 不对域名进行分流解析"
 	else
 		#屏蔽列表
-		sort -u "${RULES_PATH}/block_host" | gen_dnsmasq_fake_items "0.0.0.0" "${TMP_DNSMASQ_PATH}/00-block_host.conf"
+		sort -u "${RULES_PATH}/block_host" | gen_dnsmasq_address_items "0.0.0.0" "${TMP_DNSMASQ_PATH}/00-block_host.conf"
 
 		#始终用国内DNS解析节点域名
 		fwd_dns="${LOCAL_DNS}"
@@ -119,26 +129,18 @@ add() {
 			fwd_dns="${TUN_DNS}"
 			[ -n "$CHINADNS_NG" ] && fwd_dns="${china_ng_gfw}"
 			for item in $(get_enabled_anonymous_secs "@subscribe_list"); do
-				if [ "${DNS_MODE}" = "fake_ip" ]; then
-					host_from_url "$(config_n_get ${item} url)" | gen_dnsmasq_fake_items "11.1.1.1" "${TMP_DNSMASQ_PATH}/91-subscribe.conf"
-				else
-					host_from_url "$(config_n_get ${item} url)" | gen_dnsmasq_items "blacklist,blacklist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/91-subscribe.conf"
-				fi
+				host_from_url "$(config_n_get ${item} url)" | gen_dnsmasq_items "blacklist,blacklist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/91-subscribe.conf"
 			done
-			[ "${DNS_MODE}" != "fake_ip" ] && echolog "  - [$?]节点订阅域名(blacklist)：${fwd_dns:-默认}"
+			echolog "  - [$?]节点订阅域名(blacklist)：${fwd_dns:-默认}"
 		fi
 		
 		#始终使用远程DNS解析代理（黑名单）列表
 		[ -f "${RULES_PATH}/proxy_host" ] && {
-			if [ "${DNS_MODE}" = "fake_ip" ]; then
-				sort -u "${RULES_PATH}/proxy_host" | gen_dnsmasq_fake_items "11.1.1.1" "${TMP_DNSMASQ_PATH}/97-proxy_host.conf"
-			else
-				fwd_dns="${TUN_DNS}"
-				#[ -n "$CHINADNS_NG" ] && fwd_dns="${china_ng_gfw}"
-				#[ -n "$CHINADNS_NG" ] && unset fwd_dns
-				sort -u "${RULES_PATH}/proxy_host" | gen_dnsmasq_items "blacklist,blacklist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/97-proxy_host.conf"
-				echolog "  - [$?]代理域名表(blacklist)：${fwd_dns:-默认}"
-			fi
+			fwd_dns="${TUN_DNS}"
+			#[ -n "$CHINADNS_NG" ] && fwd_dns="${china_ng_gfw}"
+			#[ -n "$CHINADNS_NG" ] && unset fwd_dns
+			sort -u "${RULES_PATH}/proxy_host" | gen_dnsmasq_items "blacklist,blacklist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/97-proxy_host.conf"
+			echolog "  - [$?]代理域名表(blacklist)：${fwd_dns:-默认}"
 		}
 
 		#分流规则
@@ -153,13 +155,23 @@ add() {
 				fi
 				local shunt_node=$(config_n_get $shunt_node_id address nil)
 				[ "$shunt_node" = "nil" ] && continue
-				if [ "${DNS_MODE}" = "fake_ip" ]; then
-					config_n_get $shunt_id domain_list | grep -v 'regexp:\|geosite:\|ext:' | sed 's/domain:\|full:\|//g' | tr -s "\r\n" "\n" | sort -u | gen_dnsmasq_fake_items "11.1.1.1" "${TMP_DNSMASQ_PATH}/98-shunt_host.conf"
-				else
-					config_n_get $shunt_id domain_list | grep -v 'regexp:\|geosite:\|ext:' | sed 's/domain:\|full:\|//g' | tr -s "\r\n" "\n" | sort -u | gen_dnsmasq_items "shuntlist,shuntlist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/98-shunt_host.conf"
-				fi
+				config_n_get $shunt_id domain_list | grep -v 'regexp:\|geosite:\|ext:' | sed 's/domain:\|full:\|//g' | tr -s "\r\n" "\n" | sort -u | gen_dnsmasq_items "shuntlist,shuntlist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/98-shunt_host.conf"
 			done
-			[ "${DNS_MODE}" != "fake_ip" ] && echolog "  - [$?]Xray分流规则(shuntlist)：${fwd_dns:-默认}"
+			echolog "  - [$?]V2ray/Xray分流规则(shuntlist)：${fwd_dns:-默认}"
+		}
+		
+		count_hosts_str=
+		[ -f "${RULES_PATH}/direct_host" ] && direct_hosts_str="$(echo -n $(cat ${RULES_PATH}/direct_host) | sed "s/ /|/g")"
+		[ -f "${RULES_PATH}/proxy_host" ] && proxy_hosts_str="$(echo -n $(cat ${RULES_PATH}/proxy_host) | sed "s/ /|/g")"
+		[ -n "$direct_hosts_str" ] && {
+			tmp="${direct_hosts_str}"
+			[ -n "$count_hosts_str" ] && tmp="${count_hosts_str}|${direct_hosts_str}"
+			count_hosts_str="$tmp"
+		}
+		[ -n "$proxy_hosts_str" ] && {
+			tmp="${proxy_hosts_str}"
+			[ -n "$count_hosts_str" ] && tmp="${count_hosts_str}|${proxy_hosts_str}"
+			count_hosts_str="$tmp"
 		}
 
 		#如果没有使用回国模式
@@ -171,17 +183,13 @@ add() {
 					cp -a "${RULES_PATH}/gfwlist" "${TMP_PATH}/gfwlist"
 				fi
 			}
-			if [ "${DNS_MODE}" = "fake_ip" ]; then
-				sort -u "${TMP_PATH}/gfwlist" | gen_dnsmasq_fake_items "11.1.1.1" "${TMP_DNSMASQ_PATH}/99-gfwlist.conf"
-			else
-				fwd_dns="${TUN_DNS}"
-				[ -n "$CHINADNS_NG" ] && fwd_dns="${china_ng_gfw}"
-				[ -n "$CHINADNS_NG" ] && unset fwd_dns
-				sort -u "${TMP_PATH}/gfwlist" | gen_dnsmasq_items "gfwlist,gfwlist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/99-gfwlist.conf"
-				echolog "  - [$?]防火墙域名表(gfwlist)：${fwd_dns:-默认}"
-				rm -f "${TMP_PATH}/gfwlist"
-			fi
-			# Not China List 模式
+			fwd_dns="${TUN_DNS}"
+			[ -n "$CHINADNS_NG" ] && fwd_dns="${china_ng_gfw}"
+			[ -n "$CHINADNS_NG" ] && unset fwd_dns
+			sort -u "${TMP_PATH}/gfwlist" | gen_dnsmasq_items "gfwlist,gfwlist6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/99-gfwlist.conf"
+			echolog "  - [$?]防火墙域名表(gfwlist)：${fwd_dns:-默认}"
+			rm -f "${TMP_PATH}/gfwlist"
+			# 中国列表以外 模式
 			[ -n "${chnlist}" ] && {
 				fwd_dns="${LOCAL_DNS}"
 				[ -n "$CHINADNS_NG" ] && unset fwd_dns
@@ -203,18 +211,14 @@ add() {
 					cp -a "${RULES_PATH}/chnlist" "${TMP_PATH}/chnlist"
 				fi
 			}
-			if [ "${DNS_MODE}" = "fake_ip" ]; then
-				[ -f "${TMP_PATH}/chnlist" ] && sort -u "${TMP_PATH}/chnlist" | gen_dnsmasq_fake_items "11.1.1.1" "${TMP_DNSMASQ_PATH}/99-chinalist_host.conf"
-			else
-				fwd_dns="${TUN_DNS}"
-				[ -f "${TMP_PATH}/chnlist" ] && sort -u "${TMP_PATH}/chnlist" | gen_dnsmasq_items "chnroute,chnroute6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/99-chinalist_host.conf"
-				echolog "  - [$?]中国域名表(chnroute)：${fwd_dns:-默认}"
-			fi
+			fwd_dns="${TUN_DNS}"
+			[ -f "${TMP_PATH}/chnlist" ] && sort -u "${TMP_PATH}/chnlist" | gen_dnsmasq_items "chnroute,chnroute6" "${fwd_dns}" "${TMP_DNSMASQ_PATH}/99-chinalist_host.conf"
+			echolog "  - [$?]中国域名表(chnroute)：${fwd_dns:-默认}"
 			rm -f "${TMP_PATH}/chnlist"
 		fi
 		
-		#awk '{gsub(/ipset=\//,""); gsub(/\//," ");key=$1;value=$2;if (sum[key] != "") {sum[key]=sum[key]","value} else {sum[key]=sum[key]value}} END{for(i in sum) print "ipset=/"i"/"sum[i]}' "${TMP_DNSMASQ_PATH}/ipset.conf" > "${TMP_DNSMASQ_PATH}/ipset.conf2"
-		#mv -f "${TMP_DNSMASQ_PATH}/ipset.conf2" "${TMP_DNSMASQ_PATH}/ipset.conf"
+		awk '{gsub(/ipset=\//,""); gsub(/\//," ");key=$1;value=$2;if (sum[key] != "") {sum[key]=sum[key]","value} else {sum[key]=sum[key]value}} END{for(i in sum) print "ipset=/"i"/"sum[i]}' "${TMP_DNSMASQ_PATH}/ipset.conf" > "${TMP_DNSMASQ_PATH}/ipset.conf2"
+		mv -f "${TMP_DNSMASQ_PATH}/ipset.conf2" "${TMP_DNSMASQ_PATH}/ipset.conf"
 	fi
 	if [ "${DNS_MODE}" != "nouse" ]; then
 		echo "conf-dir=${TMP_DNSMASQ_PATH}" > "/var/dnsmasq.d/dnsmasq-${CONFIG}.conf"
@@ -252,18 +256,20 @@ del() {
 	rm -rf $TMP_DNSMASQ_PATH
 }
 
-case $1 in
+arg1=$1
+shift
+case $arg1 in
 add)
-	add
+	add $@
 	;;
 del)
-	del
+	del $@
 	;;
 restart)
-	restart
+	restart $@
 	;;
 logic_restart)
-	logic_restart
+	logic_restart $@
 	;;
 *) ;;
 esac

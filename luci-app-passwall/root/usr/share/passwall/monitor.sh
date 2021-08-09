@@ -35,12 +35,13 @@ do
 			#kcptun
 			use_kcp=$(config_n_get $TCP_NODE use_kcp 0)
 			if [ $use_kcp -gt 0 ]; then
-				if ! pgrep -af "$TMP_BIN_PATH/kcptun.*(tcp|TCP)" > /dev/null 2>&1; then
+				icount=$(pgrep -af "$TMP_BIN_PATH/kcptun.*(tcp|TCP)" | grep -v -E 'acl/|acl_' | wc -l)
+				if [ $icount = 0 ]; then
 					/etc/init.d/$CONFIG restart
 					exit 0
 				fi
 			fi
-			icount=$(pgrep -af "$TMP_BIN_PATH.*(tcp|TCP)" | grep -v kcptun | wc -l)
+			icount=$(pgrep -af "$TMP_BIN_PATH.*(tcp|TCP)" | grep -v -E 'kcptun|acl/|acl_' | wc -l)
 			if [ $icount = 0 ]; then
 				/etc/init.d/$CONFIG restart
 				exit 0
@@ -52,9 +53,9 @@ do
 	[ -f "$TMP_ID_PATH/UDP" ] && {
 		UDP_NODE=$(cat $TMP_ID_PATH/UDP)
 		if [ "$UDP_NODE" != "nil" ]; then
-			[ "$UDP_NODE" == "tcp" ] && continue
-			[ "$UDP_NODE" == "tcp_" ] && UDP_NODE=$TCP_NODE
-			if ! pgrep -af "$TMP_BIN_PATH.*(udp|UDP)" > /dev/null 2>&1; then
+			[ "$UDP_NODE" == "tcp" ] && UDP_NODE=$TCP_NODE
+			icount=$(pgrep -af "$TMP_BIN_PATH.*(udp|UDP)" | grep -v -E 'acl/|acl_' | wc -l)
+			if [ $icount = 0 ]; then
 				/etc/init.d/$CONFIG restart
 				exit 0
 			fi
@@ -63,7 +64,7 @@ do
 
 	#dns
 	dns_mode=$(config_t_get global dns_mode)
-	if [ "$dns_mode" == "pdnsd" ] || [ "$dns_mode" == "dns2socks" ] || [ "$dns_mode" == "xray_doh" ]; then
+	if [ "$dns_mode" == "pdnsd" ] || [ "$dns_mode" == "dns2socks" ] || [ "$dns_mode" == "v2ray_doh" ] || [ "$dns_mode" == "xray_doh" ]; then
 		icount=$(netstat -apn | grep 7913 | wc -l)
 		if [ $icount = 0 ]; then
 			/etc/init.d/$CONFIG restart

@@ -262,6 +262,18 @@ msgstr "可以使用负载均衡实现故障切换功能。"
 msgid "Restore the default configuration method. Input example in the address bar:"
 msgstr "恢复默认配置方法，地址栏输入例："
 
+msgid "Hide menu method, input example in the address bar:"
+msgstr "隐藏菜单方法，地址栏输入例："
+
+msgid "After the hidden to the display, input example in the address bar:"
+msgstr "当你隐藏后想再次显示，地址栏输入例："
+
+msgid "Are you sure to reset?"
+msgstr "你确定要恢复吗？"
+
+msgid "Are you sure to hide?"
+msgstr "你确定要隐藏吗？"
+
 msgid "DNS Export Of Multi WAN"
 msgstr "国内DNS指定解析出口"
 
@@ -315,6 +327,9 @@ msgstr "游戏模式"
 
 msgid "China List"
 msgstr "中国列表"
+
+msgid "Only use direct/proxy list"
+msgstr "仅使用直连/代理列表"
 
 msgid "Localhost"
 msgstr "本机"
@@ -493,8 +508,14 @@ msgstr "证书路径"
 msgid "Finger Print"
 msgstr "指纹伪造"
 
-msgid "Shadowsocks2"
-msgstr "二次加密"
+msgid "Original"
+msgstr "原版"
+
+msgid "Transport Plugin"
+msgstr "传输层插件"
+
+msgid "Shadowsocks secondary encryption"
+msgstr "Shadowsocks 二次加密"
 
 msgid "Encrypt Method"
 msgstr "加密"
@@ -531,6 +552,12 @@ msgstr "简洁显示节点"
 
 msgid "Show server address and port"
 msgstr "显示服务器地址和端口"
+
+msgid "Node num"
+msgstr "节点数量"
+
+msgid "Self add"
+msgstr "自添"
 
 msgid "Apply"
 msgstr "应用"
@@ -610,6 +637,12 @@ msgstr "默认"
 msgid "Close"
 msgstr "关闭"
 
+msgid "Hijacking ICMP (PING)"
+msgstr "劫持ICMP (PING)"
+
+msgid "TCP Proxy Way"
+msgstr "TCP代理方式"
+
 msgid "Proxy Settings"
 msgstr "代理配置"
 
@@ -637,8 +670,14 @@ msgstr "自动切换"
 msgid "When there is no server, an automatic reconnect scheme is used"
 msgstr "当没有服务器时，则使用自动重连方案"
 
-msgid "How often is a diagnosis made"
-msgstr "检测时间"
+msgid "How often to test"
+msgstr "多久检测一次"
+
+msgid "Timeout seconds"
+msgstr "超时秒数"
+
+msgid "Timeout retry num"
+msgstr "超时重试次数"
 
 msgid "Automatic switching cannot be used when this option is checked"
 msgstr "当勾选此选项时，不能使用自动切换"
@@ -654,6 +693,27 @@ msgstr "恢复切换"
 
 msgid "When detects main node is available, switch back to the main node."
 msgstr "当检测到主节点可用时，切换回主节点。"
+
+msgid "If the main node is V2ray/Xray shunt"
+msgstr "如果主节点是V2ray/Xray分流"
+
+msgid "Switch it"
+msgstr "切掉它"
+
+msgid "Applying to the default node"
+msgstr "应用于默认节点"
+
+msgid "Applying to the default preproxy node"
+msgstr "应用于默认前置节点"
+
+msgid "Add nodes to the standby node list by keywords"
+msgstr "通过关键字添加节点到备用节点列表"
+
+msgid "Delete nodes in the standby node list by keywords"
+msgstr "通过关键字删除备用节点列表的节点"
+
+msgid "Please enter the node keyword, pay attention to distinguish between spaces, uppercase and lowercase."
+msgstr "请输入节点关键字，注意区分空格、大写和小写。"
 
 msgid "Configure this node with 127.0.0.1: this port"
 msgstr "使用127.0.0.1和此端口配置节点"
@@ -751,8 +811,8 @@ msgstr "周"
 msgid "oclock"
 msgstr "点"
 
-msgid "Location of Xray asset"
-msgstr "Xray 资源文件目录"
+msgid "Location of V2ray/Xray asset"
+msgstr "V2ray/Xray 资源文件目录"
 
 msgid "This variable specifies a directory where geoip.dat and geosite.dat files are."
 msgstr "此变量指定geoip.dat和geosite.dat文件所在的目录。"
@@ -1045,20 +1105,14 @@ msgstr "允许不安全连接"
 msgid "Whether unsafe connections are allowed. When checked, Certificate validation will be skipped."
 msgstr "是否允许不安全连接。当勾选时，将跳过证书验证。"
 
+msgid "Trojan Node Use Type"
+msgstr "Trojan节点使用类型"
+
 msgid "<br />none: default, no masquerade, data sent is packets with no characteristics.<br />srtp: disguised as an SRTP packet, it will be recognized as video call data (such as FaceTime).<br />utp: packets disguised as uTP will be recognized as bittorrent downloaded data.<br />wechat-video: packets disguised as WeChat video calls.<br />dtls: disguised as DTLS 1.2 packet.<br />wireguard: disguised as a WireGuard packet. (not really WireGuard protocol)"
 msgstr "<br />none：默认值，不进行伪装，发送的数据是没有特征的数据包。<br />srtp：伪装成 SRTP 数据包，会被识别为视频通话数据（如 FaceTime）。<br />utp：伪装成 uTP 数据包，会被识别为 BT 下载数据。<br />wechat-video：伪装成微信视频通话的数据包。<br />dtls：伪装成 DTLS 1.2 数据包。<br />wireguard：伪装成 WireGuard 数据包。(并不是真正的 WireGuard 协议)"
 
 msgid "A legal file path. This file must not exist before running."
 msgstr "一个合法的文件路径。在运行之前，这个文件必须不存在。"
-
-msgid "TCP Open Socks"
-msgstr "开启Socks"
-
-msgid "When using this TCP node, whether to open the socks proxy at the same time"
-msgstr "使用此TCP节点时，是否同时打开socks代理"
-
-msgid "Do not conflict with other ports"
-msgstr "端口不能冲突"
 
 msgid "Auth"
 msgstr "身份认证"
@@ -1102,12 +1156,6 @@ msgstr "显示节点检测"
 msgid "Show Show IP111"
 msgstr "显示IP111"
 
-msgid "Hide menu method, input example in the address bar:"
-msgstr "隐藏菜单方法，地址栏输入例："
-
-msgid "After the hidden to the display, input example in the address bar:"
-msgstr "当你隐藏后想再次显示，地址栏输入例："
-
 msgid "The MTProto protocol must be 32 characters and can only contain characters from 0 to 9 and a to f."
 msgstr "MTProto 协议必须为 32 个字符，仅可包含 0 到 9 和 a 到 f 之间的字符。"
 
@@ -1147,8 +1195,8 @@ msgstr "当勾选时，可以直接访问局域网，这将不安全！（非特
 msgid "Enable Remote"
 msgstr "启用转发"
 
-msgid "You can forward to Nginx/Caddy/V2ray WebSocket and more."
-msgstr "您可以转发到Nginx/Caddy/V2ray WebSocket等。"
+msgid "You can forward to Nginx/Caddy/V2ray/Xray WebSocket and more."
+msgstr "您可以转发到Nginx/Caddy/V2ray/Xray WebSocket等。"
 
 msgid "Remote Address"
 msgstr "远程地址"
