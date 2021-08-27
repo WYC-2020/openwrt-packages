@@ -1,4 +1,4 @@
-![kenzo’s github stats](https://github-readme-stats.vercel.app/api?username=kenzo&show_icons=true&theme=merko)
+![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=kenzok8&show_icons=true&theme=radical)
 <div align="center">
 <h1 align="center"openwrt-packages</h1>
 <img src="https://img.shields.io/github/issues/kenzok8/openwrt-packages?color=green">
@@ -50,7 +50,7 @@
 - luci-app-advancedsetting ------------------系统高级设置
 - luci-app-serverchan      ------------------Server酱 微信/Telegram 推送的插件
 - luci-theme-ifit          ------------------透明主题（适配18.06修复主机名错误）
-- luci-theme-atmaterial    ------------------atmaterial 三合一主题（适配18.06）     
+- luci-theme-atmaterial_new  ------------------atmaterial 三合一主题（适配18.06）     
 - luci-app-aliddns         ------------------阿里云ddns
 - luci-app-eqos            ------------------依IP地址限速
 - luci-app-gost            ------------------隐蔽的https代理
