@@ -197,6 +197,9 @@ msgstr "Silent【静默】"
 msgid "Select Core's Log Level"
 msgstr "选择内核日志的默认输出模式"
 
+msgid "Switch Log Level"
+msgstr "切换日志等级"
+
 msgid "Only intranet allowed"
 msgstr "仅允许内网"
 
@@ -336,6 +339,9 @@ msgstr "代理集文件列表"
 msgid "Rule Providers File List"
 msgstr "规则集文件列表"
 
+msgid "Game Rules File List"
+msgstr "游戏规则文件列表"
+
 msgid "Please Make Sure Ports Available"
 msgstr "请确保端口可用"
 
@@ -416,6 +422,18 @@ msgstr "管理页面地址示例:"
 
 msgid "Dashboard Port"
 msgstr "管理页面端口"
+
+msgid "Public Dashboard Address"
+msgstr "管理页面公网域名"
+
+msgid "Domain Name For Dashboard Login From Public Network"
+msgstr "设置公网域名，便于从公网访问时自动登录"
+
+msgid "Public Dashboard Port"
+msgstr "管理页面映射端口"
+
+msgid "Port For Dashboard Login From Public Network"
+msgstr "设置映射端口，便于从公网访问时自动登录"
 
 msgid "GEOIP Update"
 msgstr "GEOIP数据库订阅"
@@ -2297,6 +2315,9 @@ msgstr "错误：节点解析失败，"
 msgid "Error: Resolve Proxy-group Error,"
 msgstr "错误：策略组解析失败，"
 
+msgid "Error: Set default-nameserver Error,"
+msgstr "错误：修改default-nameserver配置失败，"
+
 msgid "switching succeeded!"
 msgstr "切换成功！"
 
@@ -2368,3 +2389,16 @@ msgstr "3. 可能是DNS未劫持成功，导致Clash无法正确反推出域名�
 
 msgid "4. It may be that the filled address cannot be resolved and connected"
 msgstr "4. 可能是所填地址无法进行解析和连接"
+
+msgid "OpenClash Log"
+msgstr "插件日志"
+
+msgid "Core Log"
+msgstr "内核日志"
+
+msgid "Append Upstream DNS"
+msgstr "追加上游DNS"
+
+msgid "Append The Upstream Assigned DNS And Gateway IP To The Nameserver"
+msgstr "将上游分配的DNS和网关IP追加到Nameserver"
+
