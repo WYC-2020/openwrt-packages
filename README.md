@@ -15,7 +15,9 @@
 
 * 作为搬运工，passwall的依赖一并找齐了
 
+##### 插件下载:
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/kenzok78/compile-packages?style=for-the-badge&label=插件下载)](https://github.com/kenzok78/compile-packages/releases/latest)
 
 - [passwall依赖库下载链接，注意！在openwrt或者lean源码下编译passwall，要下载此依赖库](https://github.com/kenzok8/small.git)
 
@@ -48,7 +50,7 @@
 - luci-app-dnsfilter       ------------------基于DNS的广告过滤
 - luci-app-openclash       ------------------openclash图形         
 - luci-app-advancedsetting ------------------系统高级设置
-- luci-app-serverchan      ------------------Server酱 微信/Telegram 推送的插件
+- luci-app-pushbot         ------------------微信/钉钉 推送的插件
 - luci-theme-ifit          ------------------透明主题（适配18.06修复主机名错误）
 - luci-theme-atmaterial_new  ------------------atmaterial 三合一主题（适配18.06）     
 - luci-app-aliddns         ------------------阿里云ddns
