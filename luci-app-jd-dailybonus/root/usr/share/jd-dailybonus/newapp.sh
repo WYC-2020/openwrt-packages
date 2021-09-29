@@ -82,8 +82,8 @@ notify() {
     dtoken=$(uci_get_by_type global dd_token)
     if [ ! -z $dtoken ]; then
     	DTJ_FILE=/tmp/jd-djson.json
-	echo "{\"msgtype\": \"markdown\",\"markdown\": {\"title\":\"${title}\",\"text\":\"${title} <br/> ${desc}\"}}" > ${DTJ_FILE}
-    	uclient-fetch -q --post-file=/tmp/jd-djson.json "https://oapi.dingtalk.com/robot/send?access_token=${dtoken}"
+	echo -e "{\"msgtype\": \"markdown\",\"markdown\": {\"title\":"\"${title}\"",\"text\":\"**<font color=#6A65FF>${title}</font>**\\n\\n${desc}\"}}" > ${DTJ_FILE}
+    	wget -q --output-document=/dev/null --header="Content-Type: application/json" --post-file=${DTJ_FILE} "https://oapi.dingtalk.com/robot/send?access_token=${dtoken}"
     fi
 
     #telegram
