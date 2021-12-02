@@ -1,0 +1,56 @@
+From 984cd79e0570a64582f531e61b979fd710fa5688 Mon Sep 17 00:00:00 2001
+From: W_Y_CPP <383152993@qq.com>
+Date: Thu, 2 Dec 2021 01:06:16 -0800
+Subject: [PATCH] fix redsocks for musl 1.2.x
+
+---
+ log.c      | 4 ++--
+ redsocks.c | 2 +-
+ redudp.c   | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/log.c b/log.c
+index 53a638d..a5865fa 100644
+--- a/log.c
++++ b/log.c
+@@ -51,9 +51,9 @@ static void fprint_timestamp(
+ 	 *      then to die and stop service */
+ 	const char* sprio = getprioname(priority);
+ 	if (appendix)
+-		fprintf(fd, "%lu.%6.6lu %s %s:%u %s(...) %s: %s\n", tv.tv_sec, tv.tv_usec, sprio, file, line, func, message, appendix);
++		fprintf(fd, "%lld.%6.6lld %s %s:%u %s(...) %s: %s\n", tv.tv_sec, tv.tv_usec, sprio, file, line, func, message, appendix);
+ 	else
+-		fprintf(fd, "%lu.%6.6lu %s %s:%u %s(...) %s\n", tv.tv_sec, tv.tv_usec, sprio, file, line, func, message);
++		fprintf(fd, "%lld.%6.6lld %s %s:%u %s(...) %s\n", tv.tv_sec, tv.tv_usec, sprio, file, line, func, message);
+ }
+ 
+ static void stderr_msg(const char *file, int line, const char *func, int priority, const char *message, const char *appendix)
+diff --git a/redsocks.c b/redsocks.c
+index db0453e..4839ebd 100644
+--- a/redsocks.c
++++ b/redsocks.c
+@@ -880,7 +880,7 @@ void redsocks_dump_client(redsocks_client * client, int loglevel)
+     const char *s_client_evshut = redsocks_evshut_str(client->client_evshut);
+     const char *s_relay_evshut = redsocks_evshut_str(client->relay_evshut);
+ 
+-    redsocks_log_error(client, loglevel, "client(%i): (%s)%s%s input %zu output %zu, relay(%i): (%s)%s%s input %zu output %zu, age: %li sec, idle: %li sec.",
++    redsocks_log_error(client, loglevel, "client(%i): (%s)%s%s input %zu output %zu, relay(%i): (%s)%s%s input %zu output %zu, age: %lld sec, idle: %lld  sec.",
+         client->client ? bufferevent_getfd(client->client) : -1,
+             redsocks_event_str(client->client ?  bufferevent_get_enabled(client->client) : 0),
+             s_client_evshut[0] ? " " : "", s_client_evshut,
+diff --git a/redudp.c b/redudp.c
+index dd56cba..dff1214 100644
+--- a/redudp.c
++++ b/redudp.c
+@@ -346,7 +346,7 @@ void redudp_flush_queue(redudp_client *client)
+ static void redudp_timeout(int fd, short what, void *_arg)
+ {
+     redudp_client *client = _arg;
+-    redudp_log_error(client, LOG_DEBUG, "Client timeout. First: %li, last_client: %li, last_relay: %li.",
++    redudp_log_error(client, LOG_DEBUG, "Client timeout. First: %lld, last_client: %lld, last_relay: %lld.",
+                      client->first_event, client->last_client_event, client->last_relay_event);
+     redudp_drop_client(client);
+ }
+-- 
+2.17.1
+
