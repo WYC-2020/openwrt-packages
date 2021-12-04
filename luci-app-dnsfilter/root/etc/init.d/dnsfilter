@@ -10,10 +10,6 @@ P=/usr/share/dnsfilter
 T=/tmp/dnsfilter
 STATUS=Y
 TAG="_DNSFILTER_RULE_"
-FWI=$(uci -q get firewall.dnsfilter.path)
-enable=$(uci -q get dnsfilter.@dnsfilter[0].enable)
-flash=$(uci -q get dnsfilter.@dnsfilter[0].flash)
-url=$(uci -q get dnsfilter.@dnsfilter[0].url)
 
 get_config(){
 	config_get_bool cron_mode $1 cron_mode 1
@@ -25,6 +21,8 @@ get_config(){
 
 add_dns(){
 	mkdir -p /tmp/dnsmasq.d $D
+	flash=$(uci -q get dnsfilter.@dnsfilter[0].flash)
+	url=$(uci -q get dnsfilter.@dnsfilter[0].url)
 	echo conf-dir=$D > /tmp/dnsmasq.d/dnsfilter.conf
 	if [ -n "$url" -a ! -s /tmp/dnsfilter/failed ];then
 		mkdir -p $T
@@ -323,6 +321,7 @@ EOF
 }
 
 gen(){
+	FWI=$(uci -q get firewall.dnsfilter.path)
 	echo '#!/bin/sh' > $FWI
 }
 
@@ -338,6 +337,7 @@ add_rule(){
 			sed -e "s/^-A \(OUTPUT\|FORWARD\)/-I \1 1/"
 		echo 'COMMIT'
 	}
+	FWI=$(uci -q get firewall.dnsfilter.path)
 	cat <<-EOF >> $FWI
 	iptables-save -c | grep -v DNSFILTER | iptables-restore -c
 	iptables-restore -n <<-EOT
@@ -375,6 +375,7 @@ del_rule(){
 start(){
 	config_load dnsfilter
 	config_foreach get_config dnsfilter
+	enable=$(uci -q get dnsfilter.@dnsfilter[0].enable)
 	if [ $enable = 0 ];then
 		echo "`eval $E` [DNSFilter is disabled]"
 		exit 1
@@ -383,6 +384,8 @@ start(){
 		echo "`eval $E` [DNSFilter is running]"
 		exit 1
 	fi
+	flash=$(uci -q get dnsfilter.@dnsfilter[0].flash)
+	url=$(uci -q get dnsfilter.@dnsfilter[0].url)
 	if [ -n "$url" ];then
 		[ $flash = 0 -a ! -s $T/rules.conf ] && B=1
 		[ $flash = 1 -a ! -s $L/rules/rules.conf ] && B=1
@@ -404,15 +407,18 @@ start(){
 
 stop(){
 	del_rule
+	enable=$(uci -q get dnsfilter.@dnsfilter[0].enable)
 	kill -9 $(ps -w | grep grep $P/dnsfilter | grep -v grep | awk '{print$1}') 2>/dev/null
 	kill -9 $(ps -w | grep grep $P/addown | grep -v grep | awk '{print$1}') 2>/dev/null
 	kill -9 $(ps -w | grep ad_new.conf | grep -v grep | awk '{print$1}') 2>/dev/null
 	echo "`eval $E` [Stop DNSFilter]"
 	rm -rf /tmp/dnsmasq.d/dnsfilter.conf $D /var/lock/dnsfilter.lock
+	url=$(uci -q get dnsfilter.@dnsfilter[0].url)
 	if [ "$(echo $url | sed 's/ /\n/g' | sort -u)" != "$(cat $T/url 2>/dev/null)" ];then
 		rm -rf $T
 		[ -d $L/rules ] && rm -rf $L/rules
 	fi
+	flash=$(uci -q get dnsfilter.@dnsfilter[0].flash)
 	([ -h $T/url -a $flash = 0 ] || [ -z "$url" ]) && rm -rf $T
 	[ $enable = 0 ] && del_cron
 	if [ $STATUS = Y ];then
@@ -424,6 +430,7 @@ stop(){
 }
 
 restart(){
+	enable=$(uci -q get dnsfilter.@dnsfilter[0].enable)
 	if [ $enable = 1 ];then
 		STATUS=N
 		stop
