@@ -1750,6 +1750,10 @@ header > .container > .pull-right > * {
     border: none;
 }
 
+.node-system-flashops form.inline+form.inline {
+	margin-left: 0
+}
+
 #cbi-firewall-redirect table *,
 #cbi-network-switch_vlan table *,
 #cbi-firewall-zone table *{
