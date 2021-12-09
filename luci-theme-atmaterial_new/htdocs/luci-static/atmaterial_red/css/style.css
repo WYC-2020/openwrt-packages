@@ -493,7 +493,7 @@ header > .container > a[class="brand"]:after {
     content: "\e01b";
 }
 .main > .main-left > .nav > .slide > a[data-title="Docker"]:before {
-    content: "\e027";
+    content: "\e025";
 }
 .main > .main-left > .nav > .slide > a[data-title="NAS"]:before {
     content: "\e00b";
