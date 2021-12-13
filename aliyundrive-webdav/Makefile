@@ -24,7 +24,7 @@ endif
 
 PKG_SOURCE:=aliyundrive-webdav-v$(PKG_VERSION).$(PKG_ARCH)-unknown-linux-$(PKG_LIBC).tar.gz
 PKG_SOURCE_URL:=https://github.com/messense/aliyundrive-webdav/releases/download/v$(PKG_VERSION)/
-PKG_HASH:=skip
+PKG_HASH:=884bdbc065acc9cce660c664a2a5f4535d1dca0ee5c133cc57a7291ecd5259d3
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -47,7 +47,7 @@ define Download/sha256sum
 	FILE:=$(PKG_SOURCE).sha256
 	URL_FILE:=$(FILE)
 	URL:=$(PKG_SOURCE_URL)
-	HASH:=skip
+	HASH:=7e6e7e4a3bf07319904783d054612854fffe27e51c5ed794e6bee659b9ed5c61
 endef
 $(eval $(call Download,sha256sum))
 
