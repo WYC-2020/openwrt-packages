@@ -47,7 +47,7 @@ define Download/sha256sum
 	FILE:=$(PKG_SOURCE).sha256
 	URL_FILE:=$(FILE)
 	URL:=$(PKG_SOURCE_URL)
-	HASH:=7e6e7e4a3bf07319904783d054612854fffe27e51c5ed794e6bee659b9ed5c61
+	HASH:=skip
 endef
 $(eval $(call Download,sha256sum))
 
