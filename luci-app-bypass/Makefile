@@ -43,6 +43,8 @@ LUCI_DEPENDS:=+ipset +ip-full +iptables-mod-tproxy +dnsmasq-full +smartdns +core
 	+PACKAGE_$(PKG_NAME)_INCLUDE_Socks_Server:microsocks
 
 define Package/$(PKG_NAME)/config
+menu "Configuration"
+
 config PACKAGE_$(PKG_NAME)_INCLUDE_Shadowsocks_Libev_Client
 	bool "Include Shadowsocks Libev Client"
 	default y
@@ -100,6 +102,8 @@ config PACKAGE_$(PKG_NAME)_INCLUDE_Socks5_Proxy
 config PACKAGE_$(PKG_NAME)_INCLUDE_Socks_Server
 	bool "Include Socks Sever"
 	default y
+
+endmenu
 endef
 
 define Package/$(PKG_NAME)/conffiles
