@@ -647,7 +647,8 @@ run_redir() {
 				UDP_NODE="nil"
 			}
 			_extra_param="${_extra_param} ${proto}"
-			_extra_param="${_extra_param} -route_only 1"
+			local route_only=$(config_t_get global_forwarding route_only 1)
+			[ "${route_only}" = "1" ] && _extra_param="${_extra_param} -route_only 1"
 			[ "${DNS_MODE}" = "v2ray" -o "${DNS_MODE}" = "xray" ] && {
 				local v2ray_dns_mode=$(config_t_get global v2ray_dns_mode tcp)
 				[ "$(config_t_get global dns_by)" = "tcp" -o "${v2ray_dns_mode}" = "fakedns" ] && {
@@ -1124,15 +1125,11 @@ start_dns() {
 	
 	case "$DNS_SHUNT" in
 	smartdns)
-		if [ -n "$(first_type smartdns)" ]; then
-			local group_domestic=$(config_t_get global group_domestic)
-			CHINADNS_NG=0
-			source $APP_PATH/helper_smartdns.sh add DNS_MODE=$DNS_MODE SMARTDNS_CONF=/tmp/etc/smartdns/$CONFIG.conf REMOTE_FAKEDNS=$fakedns DEFAULT_DNS=$DEFAULT_DNS LOCAL_GROUP=$group_domestic TUN_DNS=$TUN_DNS TCP_NODE=$TCP_NODE PROXY_MODE=${TCP_PROXY_MODE}${LOCALHOST_TCP_PROXY_MODE} NO_PROXY_IPV6=${filter_proxy_ipv6}
-			source $APP_PATH/helper_smartdns.sh restart
-			echolog "  - 域名解析：使用SmartDNS，请确保配置正常。"
-		else
-			DNS_SHUNT="dnsmasq"
-		fi
+		local group_domestic=$(config_t_get global group_domestic)
+		CHINADNS_NG=0
+		source $APP_PATH/helper_smartdns.sh add DNS_MODE=$DNS_MODE SMARTDNS_CONF=/tmp/etc/smartdns/$CONFIG.conf REMOTE_FAKEDNS=$fakedns DEFAULT_DNS=$DEFAULT_DNS LOCAL_GROUP=$group_domestic TUN_DNS=$TUN_DNS TCP_NODE=$TCP_NODE PROXY_MODE=${TCP_PROXY_MODE}${LOCALHOST_TCP_PROXY_MODE} NO_PROXY_IPV6=${filter_proxy_ipv6}
+		source $APP_PATH/helper_smartdns.sh restart
+		echolog "  - 域名解析：使用SmartDNS，请确保配置正常。"
 	;;
 	esac
 
@@ -1465,6 +1462,7 @@ returnhome=$(echo "${TCP_PROXY_MODE}${LOCALHOST_TCP_PROXY_MODE}${UDP_PROXY_MODE}
 chnlist=$(echo "${TCP_PROXY_MODE}${LOCALHOST_TCP_PROXY_MODE}${UDP_PROXY_MODE}${LOCALHOST_UDP_PROXY_MODE}" | grep "chnroute")
 gfwlist=$(echo "${TCP_PROXY_MODE}${LOCALHOST_TCP_PROXY_MODE}${UDP_PROXY_MODE}${LOCALHOST_UDP_PROXY_MODE}" | grep "gfwlist")
 DNS_SHUNT=$(config_t_get global dns_shunt dnsmasq)
+[ -z "$(first_type $DNS_SHUNT)" ] && DNS_SHUNT="dnsmasq"
 DNS_MODE=$(config_t_get global dns_mode pdnsd)
 DNS_FORWARD=$(config_t_get global dns_forward 1.1.1.1:53 | sed 's/#/:/g' | sed -E 's/\:([^:]+)$/#\1/g')
 DNS_CACHE=$(config_t_get global dns_cache 0)
