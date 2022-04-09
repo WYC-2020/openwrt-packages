@@ -36,4 +36,5 @@ config_foreach remove_firewall firewall
 /etc/init.d/dockerd restart &
 /etc/init.d/dockerd restart &
 /etc/init.d/dockerd restart &
+/etc/init.d/dockerd restart &
 exit 0
