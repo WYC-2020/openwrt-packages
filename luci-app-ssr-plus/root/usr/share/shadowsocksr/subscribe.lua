@@ -192,6 +192,13 @@ local function processData(szType, content)
 			result.read_buffer_size = 2
 			result.write_buffer_size = 2
 		end
+		if info.net == 'grpc' then
+			if info.path then
+				result.serviceName = info.path
+			elseif info.serviceName then
+				result.serviceName = info.serviceName
+			end
+		end
 		if info.net == 'quic' then
 			result.quic_guise = info.type
 			result.quic_key = info.key
@@ -202,10 +209,18 @@ local function processData(szType, content)
 		end
 		if info.tls == "tls" or info.tls == "1" then
 			result.tls = "1"
-			result.tls_host = info.host
+			if info.sni then
+				result.tls_host = info.sni
+			elseif info.host then
+				result.tls_host = info.host
+			end
 			result.insecure = 1
 		else
 			result.tls = "0"
+		end
+		-- https://www.v2fly.org/config/protocols/vmess.html#vmess-md5-认证信息-淘汰机制
+		if info.aid and (tonumber(info.aid) > 0) then
+			result.server = nil
 		end
 	elseif szType == "ss" then
 		local idx_sp = 0
