@@ -1,13 +1,11 @@
 #!/bin/sh /etc/rc.common
 # Copyright (C) 2021 ImmortalWrt
 
-. /lib/functions.sh
-. /lib/functions/procd.sh
-
-USE_PROCD=1
-
 START=90
 STOP=10
+USE_PROCD=1
+
+FILEBROWSER="/usr/bin/filebrowser "
 
 init_conf() {
 	config_load "filebrowser"
@@ -22,6 +20,7 @@ init_conf() {
 }
 
 start_service() {
+	stop_service
 	init_conf
 	[ "${enabled}" == "1" ] || exit 0
 	procd_open_instance filebrowser
@@ -46,14 +45,13 @@ start_service() {
 }
 
 stop_service(){
-	init_conf
 	echo "${db_dir}/${db_name}" > "/lib/upgrade/keep.d/filebrowser"
+	killall -9 ${FILEBROWSER}>/dev/null 2>&1
 }
 
 reload_service()
 {
-	stop
-	start
+	restart
 }
 
 service_triggers() {
