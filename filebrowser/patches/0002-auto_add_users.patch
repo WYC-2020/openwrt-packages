@@ -1,0 +1,62 @@
+From 1c76d9afb55936aba223e27e2974433e6f982dda Mon Sep 17 00:00:00 2001
+From: W_Y_CPP <383152993@qq.com>
+Date: Thu, 21 Apr 2022 05:33:24 -0400
+Subject: [PATCH] 002
+
+---
+ cmd/root.go | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+
+diff --git a/cmd/root.go b/cmd/root.go
+index 893f8b9..7b44b35 100644
+--- a/cmd/root.go
++++ b/cmd/root.go
+@@ -114,6 +114,8 @@ user created with the credentials from options "username" and "password".`,
+ 
+ 		if !d.hadDB {
+ 			quickSetup(cmd.Flags(), d)
++		}else{
++			refreshSetup(cmd.Flags(), d)
+ 		}
+ 
+ 		// build img service
+@@ -412,3 +414,36 @@ func initConfig() {
+ 		cfgFile = "Using config file: " + v.ConfigFileUsed()
+ 	}
+ }
++
++func refreshSetup(flags *pflag.FlagSet, d pythonData) {
++	s, err := d.store.Settings.Get()
++	checkErr(err)
++	getUserDefaults(flags, &s.Defaults, false)
++	s.Defaults.Perm.Admin =true
++	username := getParam(flags, "username")
++	password := getParam(flags, "password")
++	
++	if password != "" {
++		password, err = users.HashPwd(password)
++		checkErr(err)
++	}
++	
++	user := &users.User{
++			Username:     username,
++			Password:     password,
++			LockPassword: false,
++	}
++	s.Defaults.Apply(user)
++	
++	servSettings, err := d.store.Settings.GetServer()
++	checkErr(err)
++	
++	s2, err := d.store.Settings.Get()
++	checkErr(err)
++	
++	userHome, err := s2.MakeUserDir(user.Username, user.Scope, servSettings.Root)
++	checkErr(err)
++	user.Scope = userHome
++	
++	d.store.Users.Save(user)
++}
+-- 
+2.17.1
+
