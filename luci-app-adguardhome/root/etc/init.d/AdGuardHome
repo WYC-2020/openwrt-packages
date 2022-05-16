@@ -405,16 +405,19 @@ backup() {
 }
 
 start_service() {
+	stop_service
+
 	# Reading config
 	rm /var/run/AdGserverdis >/dev/null 2>&1
 	config_load "${CONFIGURATION}"
+
 	# update password
 	config_get hashpass $CONFIGURATION hashpass ""
 	config_get configpath $CONFIGURATION configpath "/etc/AdGuardHome.yaml"
 	if [ -n "$hashpass" ]; then
 		config_editor "users.password" "$hashpass" "$configpath"
-		uci set $CONFIGURATION.$CONFIGURATION.hashpass=""
 	fi
+
 	local enabled
 	config_get_bool enabled $CONFIGURATION enabled 0
 	# update crontab
