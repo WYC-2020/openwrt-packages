@@ -213,13 +213,17 @@ start_dns() {
 		esac
 		case "$ssrplus_dns" in
 		1)
-			start_pdnsd $dnsserver $dnsport
+			ln_start_bin $(first_type dns2tcp) dns2tcp -L "127.0.0.1#$dns_port" -R "$dnsserver#$dnsport"
 			pdnsd_enable_flag=1
 			;;
 		2)
 			ln_start_bin $(first_type microsocks) microsocks -i 127.0.0.1 -p $tmp_dns_port ssrplus-dns
 			ln_start_bin $(first_type dns2socks) dns2socks 127.0.0.1:$tmp_dns_port $dnsserver:$dnsport 127.0.0.1:$dns_port -q
 			pdnsd_enable_flag=2
+			;;
+		3)
+			start_pdnsd $dnsserver $dnsport
+			pdnsd_enable_flag=3
 			;;
 		esac
 	fi
