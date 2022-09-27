@@ -46,14 +46,5 @@ start_service() {
 
 stop_service(){
 	echo "${db_dir}/${db_name}" > "/lib/upgrade/keep.d/filebrowser"
-	killall -9 ${FILEBROWSER}>/dev/null 2>&1
-}
-
-reload_service()
-{
-	restart
-}
-
-service_triggers() {
-	procd_add_reload_trigger "filebrowser"
+	killall -3 filebrowser >/dev/null 2>&1
 }
