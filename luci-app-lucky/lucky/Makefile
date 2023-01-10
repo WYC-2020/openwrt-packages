@@ -52,15 +52,22 @@ include $(INCLUDE_DIR)/package.mk
 define Package/$(PKG_NAME)
 	SECTION:=net
 	CATEGORY:=Network
-	TITLE:=Lucky gdy
+	TITLE:=Lucky dynamic domain name ddns-go service, socat,frp 
 	DEPENDS:=@(i386||x86_64||arm||aarch64||mipsel||mips)
 	URL:=https://github.com/gdy666/lucky
 endef
 
 define Package/$(PKG_NAME)/description
-  Main functions of Lucky: ipv4/ipv6 portforward,ddns,IOT wake on lan ,reverse proxy and more...
+  Main functions of Lucky: dynamic domain name ddns-go service, socat,reverse proxy ,wake on lan
 endef
 
+define Build/Prepare
+	[ ! -f $(PKG_BUILD_DIR)/$(PKG_NAME)_$(PKG_VERSION)_Linux_$(LUCKY_ARCH).tar.gz ] && wget https://github.com/gdy666/lucky/releases/download/v$(PKG_VERSION)/$(PKG_NAME)_$(PKG_VERSION)_Linux_$(LUCKY_ARCH).tar.gz -O $(PKG_BUILD_DIR)/$(PKG_NAME)_$(PKG_VERSION)_Linux_$(LUCKY_ARCH).tar.gz
+	tar -xzvf $(PKG_BUILD_DIR)/$(PKG_NAME)_$(PKG_VERSION)_Linux_$(LUCKY_ARCH).tar.gz -C $(PKG_BUILD_DIR)
+endef
+
+define Build/Compile
+endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/bin
