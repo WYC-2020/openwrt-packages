@@ -57,6 +57,7 @@ define Build/Compile
 	)
 endef
 
+
 define Package/adguardhome/install
 	$(call GoPackage/Package/Install/Bin,$(1))
 endef
