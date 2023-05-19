@@ -29,7 +29,10 @@ endef
 PKG_BUILD_DEPENDS:=golang/host fuse
 PKG_BUILD_PARALLEL:=1
 PKG_USE_MIPS16:=0
+
+ifeq ($(CONFIG_USE_MUSL),y)
 TARGET_CFLAGS += -D_LARGEFILE64_SOURCE
+endif
 
 GO_PKG:=github.com/alist-org/alist
 GO_PKG_LDFLAGS:=-w -s
