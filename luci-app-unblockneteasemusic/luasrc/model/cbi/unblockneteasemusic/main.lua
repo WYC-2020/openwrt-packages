@@ -24,7 +24,6 @@ o:value("qq", translate("QQ音乐"))
 o:value("youtube", translate("Youtube音乐"))
 o:value("youtubedl", translate("Youtube音乐（youtube-dl）"))
 o:value("ytdlp", translate("Youtube音乐（yt-dlp）"))
-o:value("ytdownload", translate("Youtube音乐（ytdownload）"))
 o.description = translate("自定义模式下，多个音源请用空格隔开")
 o.default = "default"
 o.rmempty = false
@@ -37,12 +36,6 @@ o.rmempty = false
 o = s:option(Value, "joox_cookie", translate("JOOX Cookie"))
 o.description = translate("在 joox.com 获取，需要 wmid 和 session_key 值")
 o.placeholder = "wmid=; session_key="
-o.datatype = "string"
-o:depends("use_custom_cookie", 1)
-
-o = s:option(Value, "kuwo_cookie", translate("Kuwo Cookie"))
-o.description = translate("通过抓包 PC 网页搜索请求获取，需要 Hm 和 Secret 值")
-o.placeholder = "Hm_=; Secret="
 o.datatype = "string"
 o:depends("use_custom_cookie", 1)
 
