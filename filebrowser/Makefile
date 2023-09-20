@@ -5,13 +5,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=filebrowser
-PKG_VERSION:=2.24.2
+PKG_VERSION:=2.25.0
 PKG_RELEASE:=$(AUTORELEASE)
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=02db83c72ef3e14bac8df085a49f873261c6fb69
 PKG_SOURCE_URL:=https://github.com/filebrowser/filebrowser
-PKG_HASH:=4889c0efd1abfdb3a717c5c906db4fa36dd6a2b01754e4124c9d870147df2682
+PKG_HASH:=e6d83a869454a1b90768917809f76673acc9752999faf2d6ba50766d7d8a7d38
 
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
@@ -20,6 +20,7 @@ PKG_MAINTAINER:=CN_SZTL <cnsztl@immortalwrt.org>
 PKG_BUILD_DEPENDS:=golang/host node/host
 PKG_BUILD_PARALLEL:=1
 PKG_USE_MIPS16:=0
+PKG_BUILD_FLAGS:=no-mips16
 
 GO_PKG:=github.com/filebrowser/filebrowser
 GO_PKG_LDFLAGS_X:= \
