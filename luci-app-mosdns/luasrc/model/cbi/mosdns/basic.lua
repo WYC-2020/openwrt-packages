@@ -66,6 +66,7 @@ o:value("180.76.76.76", translate("Baidu Public DNS (180.76.76.76)"))
 o:value("https://doh.pub/dns-query", translate("Tencent Public DNS (DNS over HTTPS)"))
 o:value("quic://dns.alidns.com", translate("Aliyun Public DNS (DNS over QUIC)"))
 o:value("https://dns.alidns.com/dns-query", translate("Aliyun Public DNS (DNS over HTTPS)"))
+o:value("h3://dns.alidns.com/dns-query", translate("Aliyun Public DNS (DNS over HTTPS/3)"))
 o:value("https://doh.360.cn/dns-query", translate("360 Public DNS (DNS over HTTPS)"))
 o:depends("custom_local_dns", "1")
 
@@ -120,16 +121,6 @@ o.rmempty = false
 o.default = false
 o:depends("configfile", "/etc/mosdns/config.yaml")
 
-o = s:taboption("advanced", Flag, "enable_http3_local", translate("Local DNS Enable HTTP/3"), translate("Enable DoH HTTP/3 protocol for Local DNS, Upstream DNS server support is required (Experimental)"))
-o.rmempty = false
-o.default = false
-o:depends("custom_local_dns", "1")
-
-o = s:taboption("advanced", Flag, "enable_http3_remote", translate("Remote DNS Enable HTTP/3"), translate("Enable DoH HTTP/3 protocol for Remote DNS, Upstream DNS server support is required (Experimental)"))
-o.rmempty = false
-o.default = false
-o:depends("configfile", "/etc/mosdns/config.yaml")
-
 o = s:taboption("advanced", Flag, "enable_ecs_remote", translate("Enable EDNS client subnet"), translate("Add the EDNS Client Subnet option (ECS) to Remote DNS") .. '<br />' .. translate("MosDNS will auto identify the IP address subnet segment of your remote connection (0/24)") .. '<br />' .. translate("If your remote access network changes, May need restart MosDNS to update the ECS request address"))
 o.rmempty = false
 o.default = false
@@ -176,11 +167,12 @@ o.default = false
 
 o = s:taboption("advanced", DynamicList, "ad_source", translate("ADblock Source"), translate("When using custom rule sources, please use rule types supported by MosDNS (domain lists).") .. '<br />' .. translate("Support for local files, such as: file:///var/mosdns/example.txt"))
 o:depends("adblock", "1")
+o.default = "geosite.dat"
 o:value("geosite.dat", "v2ray-geosite")
 o:value("https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/master/anti-ad-domains.txt", "anti-AD")
+o:value("https://raw.githubusercontent.com/Cats-Team/AdRules/main/mosdns_adrules.txt", "Cats-Team/AdRules")
 o:value("https://raw.githubusercontent.com/ookangzheng/dbl-oisd-nl/master/dbl_light.txt", "oisd (small)")
 o:value("https://raw.githubusercontent.com/ookangzheng/dbl-oisd-nl/master/dbl.txt", "oisd (big)")
-o:value("https://raw.githubusercontent.com/QiuSimons/openwrt-mos/master/dat/serverlist.txt", "QiuSimons/openwrt-mos")
 
 o = s:taboption("basic",  Button, "_reload", translate("Restart-Service"), translate("Restart the MosDNS process to take effect of new configuration"))
 o.write = function()
