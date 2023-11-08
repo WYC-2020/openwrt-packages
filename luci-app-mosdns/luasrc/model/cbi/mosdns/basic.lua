@@ -47,6 +47,10 @@ o:depends("configfile", "/etc/mosdns/config.yaml")
 o = s:taboption("basic", Flag, "redirect", translate("DNS Forward"), translate("Forward Dnsmasq Domain Name resolution requests to MosDNS"))
 o.default = true
 
+o = s:taboption("basic", Flag, "prefer_ipv4", translate("Remote DNS prefer IPv4"), translate("IPv4 is preferred for remote DNS resolution of dual-stack addresses, and is not affected when the destination is IPv6 only"))
+o:depends( "configfile", "/etc/mosdns/config.yaml")
+o.default = true
+
 o = s:taboption("basic", Flag, "custom_local_dns", translate("Custom China DNS"), translate("Follow WAN interface DNS if not enabled"))
 o:depends( "configfile", "/etc/mosdns/config.yaml")
 o.default = false
@@ -98,11 +102,6 @@ s:tab("advanced", translate("Advanced Options"))
 
 o = s:taboption("advanced", Value, "concurrent", translate("Concurrent"), translate("DNS query request concurrency, The number of upstream DNS servers that are allowed to initiate requests at the same time"))
 o.datatype = "and(uinteger,min(1),max(3))"
-o.default = "2"
-o:depends("configfile", "/etc/mosdns/config.yaml")
-
-o = s:taboption("advanced", Value, "max_conns", translate("Maximum Connections"), translate("Set the Maximum connections for DoH and pipeline's TCP/DoT, Except for the HTTP/3 protocol"))
-o.datatype = "and(uinteger,min(1))"
 o.default = "2"
 o:depends("configfile", "/etc/mosdns/config.yaml")
 
