@@ -26,7 +26,7 @@ define Download/$(PKG_NAME)-web
   HASH:=50ae0539720bce7c470ac6bc47216b0e103e73636ee3a9b4b9364e2b52ca93f6
 endef
 
-PKG_BUILD_DEPENDS:=golang/host fuse
+PKG_BUILD_DEPENDS:=golang/host fuse/host
 PKG_BUILD_PARALLEL:=1
 PKG_USE_MIPS16:=0
 PKG_BUILD_FLAGS:=no-mips16
