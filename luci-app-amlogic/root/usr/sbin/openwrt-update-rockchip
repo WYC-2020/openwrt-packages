@@ -158,6 +158,14 @@ case $MYDEVICE_NAME in
 		fi
 		SOC="ht2"
 		;;
+	"Radxa E20C")
+		if [ -n "${CURRENT_FDTFILE}" ]; then
+			MYDTB_FDTFILE="${CURRENT_FDTFILE}"
+		else
+			MYDTB_FDTFILE="rk3528-radxa-e20c.dtb"
+		fi
+		SOC="e20c"
+		;;
 	"Ariaboard Photonicat")
 		if [ -n "${CURRENT_FDTFILE}" ]; then
 			MYDTB_FDTFILE="${CURRENT_FDTFILE}"
@@ -189,6 +197,14 @@ case $MYDEVICE_NAME in
 			MYDTB_FDTFILE="rk3588-rock-5b.dtb"
 		fi
 		SOC="rock5b"
+		;;
+	"Radxa ROCK 5C"|"Radxa ROCK 5 Model C")
+		if [ -n "${CURRENT_FDTFILE}" ]; then
+			MYDTB_FDTFILE="${CURRENT_FDTFILE}"
+		else
+			MYDTB_FDTFILE="rk3588s-rock-5c.dtb"
+		fi
+		SOC="rock5c"
 		;;
 	*)	#default
 		if [ -f "/etc/flippy-openwrt-release" ]; then
