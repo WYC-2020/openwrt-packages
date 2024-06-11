@@ -1,4 +1,7 @@
-## 无法下载证书声明：
+## How to build
+git clone -b main --single-branch https://github.com/ilxp/luci-app-ikoolproxy.git package/diy/ikoolproxy
+
+## 无法下载证书声明（2024.06.10版本已经解决此问题，感谢[Black-Steel](https://github.com/Black-Steel)）：
 目前因为openwrt的openssl升级为3.0了。导致ikoolproxy无法下载证书。lean大佬的lede可以回退。openwrt则不行。
 
 ## 整理声明：
