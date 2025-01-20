@@ -28,7 +28,12 @@
 [![paypal][paypal-badge]][paypal]
 
 
-Luci theme for Official Openwrt and Alpha OS build ,based on bootstrap and material luCi theme refferences,
+Luci theme for Official Openwrt and Alpha OS build ,based on bootstrap framework 
+and material luCi theme refferences,
+Thanks To Komunitas Device Berbasis ARM Indonesia (DBAI) for support this theme.
+This official 1'st theme in Indo-Wrt Community in indonesia. Not the result of modification from anyone, this is purely made by us
+### ©Derisamedia
+https://derisamedia.github.io/
 <summary>Preview Screenshoot</summary>
 <p>
   
@@ -58,6 +63,17 @@ alpha os is my idea which wants to develop the OpenWrt community in Indonesia, e
 
 
 (old text) Mr. Sibondt once they said 'jalan ditempat komunitas indo', that's what moved my heart to make an innovation that I named alpha os (alpha = initial version, because it hasn't been perfect until now 😁)
+
+### Credits
+Indowrt (indonesian Openwrt Community)
+DBAI (Device Berbasis Arm Indonesia)
+
+### frameworks
+this theme using bootstrap framework + vanilla css
+icons made by me + flaticons
+
+### Attention 
+This theme required luci-theme-alpha-config installed
 
 donate
 buy me a padang rice or coffee
