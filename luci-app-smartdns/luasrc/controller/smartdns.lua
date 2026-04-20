@@ -15,43 +15,51 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 module("luci.controller.smartdns", package.seeall)
+
+local fs = require "nixio.fs"
+local sys = require "luci.sys"
+local http = require "luci.http"
 local smartdns = require "luci.model.smartdns"
 
 function index()
-	if not nixio.fs.access("/etc/config/smartdns") then
+	local page
+	page = entry({"admin", "services", "smartdns", "status"}, call("act_status"))
+	page.leaf = true
+
+	if not fs.access("/etc/config/smartdns") then
 		return
 	end
 
-	local page
+	-- luci 23.05+ 已通过 menu.d JSON 注册菜单，无需重复注册
+	if fs.access("/usr/share/luci/menu.d/luci-app-smartdns.json") then
+		return
+	end
+
 	page = entry({"admin", "services", "smartdns"}, cbi("smartdns/smartdns"), _("SmartDNS"), 60)
 	page.dependent = true
-	page = entry({"admin", "services", "smartdns", "status"}, call("act_status"))
-	page.leaf = true
 	page = entry({"admin", "services", "smartdns", "upstream"}, cbi("smartdns/upstream"), nil)
 	page.leaf = true
 end
 
 local function is_running()
-	return luci.sys.call("pidof smartdns >/dev/null") == 0
+	return sys.call("pidof smartdns >/dev/null") == 0
 end
 
 function act_status()
-	local e={}
-	local ipv6_server;
+	local e = {}
 	local dnsmasq_server = smartdns.get_config_option("dhcp", "dnsmasq", "server", {nil})[1]
-	local auto_set_dnsmasq = smartdns.get_config_option("smartdns", "smartdns", "auto_set_dnsmasq", nil);
-	
+	local auto_set_dnsmasq = smartdns.get_config_option("smartdns", "smartdns", "auto_set_dnsmasq", nil)
+
 	e.auto_set_dnsmasq = auto_set_dnsmasq
 	e.dnsmasq_server = dnsmasq_server
-	e.local_port = smartdns.get_config_option("smartdns", "smartdns", "port", nil);
+	e.local_port = smartdns.get_config_option("smartdns", "smartdns", "port", nil)
 	if e.local_port ~= nil and e.local_port ~= "53" and auto_set_dnsmasq ~= nil and auto_set_dnsmasq == "1" then
-		local str;
-		str = "127.0.0.1#" .. e.local_port 
+		local str = "127.0.0.1#" .. e.local_port
 		if dnsmasq_server ~= str then
 			e.dnsmasq_redirect_failure = 1
 		end
 	end
 	e.running = is_running()
-	luci.http.prepare_content("application/json")
-	luci.http.write_json(e)
+	http.prepare_content("application/json")
+	http.write_json(e)
 end
