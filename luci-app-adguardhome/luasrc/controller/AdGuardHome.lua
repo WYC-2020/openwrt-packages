@@ -113,12 +113,34 @@ function toggle_service()
 		enabled = (enabled == "1")
 	}
 
+	-- Preflight: when enabling, make sure the binary is actually present.
+	-- Without this, init.d reload silently fails and the UI only sees an
+	-- opaque "Operation failed" toast (issue #254).
+	if enabled == "1" then
+		local binpath = uci:get("AdGuardHome", "AdGuardHome", "binpath") or "/usr/bin/AdGuardHome"
+		if not fs.access(binpath) then
+			result.success = false
+			result.enabled = (old_enabled == "1")
+			result.running = false
+			result.message = "找不到 AdGuardHome 二进制文件（" .. binpath ..
+				"），请先在「运维」页面下载。"
+			http.prepare_content("application/json")
+			http.write_json(result)
+			return
+		end
+	end
+
 	uci:set("AdGuardHome", "AdGuardHome", "enabled", enabled)
 	uci:commit("AdGuardHome")
 
 	local rc
 	if enabled == "1" then
-		rc = luci.sys.call("/sbin/start-stop-daemon -S -b -x /bin/sh -- -c '/etc/init.d/AdGuardHome reload >/dev/null 2>&1'")
+		-- Detach the reload from the CGI request so the HTTP call returns
+		-- immediately while the daemon comes up. Fully redirecting fds + `&`
+		-- is enough — avoid start-stop-daemon, whose busybox applet is not
+		-- enabled on some images (e.g. immortalwrt 25.10), where it would
+		-- exit 127 and make the toggle wrongly report a start failure (#254).
+		rc = luci.sys.call("/etc/init.d/AdGuardHome reload >/dev/null 2>&1 &")
 	else
 		rc = luci.sys.call("/etc/init.d/AdGuardHome stop >/dev/null 2>&1")
 	end
