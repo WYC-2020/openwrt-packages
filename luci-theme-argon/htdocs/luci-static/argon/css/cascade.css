@@ -1386,6 +1386,7 @@ footer > a {
 .alert.error,
 .alert-message.error {
   background-color: var(--warning);
+  color: var(--yellow);
 }
 .alert h4,
 .alert-message h4 {
@@ -1419,6 +1420,27 @@ footer > a {
 }
 .alert-message .btn {
   padding: 0.3rem 0.6rem;
+}
+/* LuCI's ui.js dismisses notification banners by adding the .fade-out
+   class and removing the banner node once a transitionend event fires
+   on it. Without a transitioned opacity on .alert-message the Dismiss
+   button has no visible effect and the banner stays open forever. */
+.alert-message {
+  transition: opacity 0.4s ease;
+}
+.alert-message.fade-out {
+  opacity: 0;
+}
+.alert-message.fade-in {
+  animation: alert-message-fade-in 0.4s ease;
+}
+@keyframes alert-message-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 #maincontent > .alert-message {
   position: fixed;
@@ -1600,6 +1622,14 @@ body:not([data-page="admin-dashboard"]) .cbi-section-table-row::before,
 body:not([data-page="admin-dashboard"]) #cbi-wireless > #wifi_assoclist_table > .tr:nth-child(2) {
   border-top: thin solid #ddd;
   padding: 1.1em 1.25rem;
+}
+@media (prefers-color-scheme: dark) {
+  body:not([data-page="admin-dashboard"]) tr > td,
+  body:not([data-page="admin-dashboard"]) tr > th,
+  body:not([data-page="admin-dashboard"]) .tr > .td,
+  body:not([data-page="admin-dashboard"]) .tr > .th {
+    border-top: thin solid #444 !important;
+  }
 }
 #cbi-wireless .td,
 .table[width="100%"] > .tr:first-child > .td,
@@ -3046,7 +3076,6 @@ span[data-tooltip] .label {
   padding: 0.5rem;
   opacity: 0;
   transition: opacity 0.25s ease-in;
-  transform: translate(-50%, 10%);
 }
 .cbi-tooltip-container:hover .cbi-tooltip:not(:empty) {
   left: auto;
@@ -3276,6 +3305,7 @@ pre.command-output {
 }
 [data-page="admin-system-system"] .control-group {
   gap: 0.875rem;
+  margin: 0.25rem 0;
 }
 [data-page="admin-system-system"] .cbi-dynlist {
   margin: 0.25rem 0;
@@ -3624,6 +3654,9 @@ pre.command-output {
 .cbi-section.fade-in .cbi-title {
   position: relative;
 }
+.cbi-section.fade-in .cbi-title .label {
+  cursor: pointer;
+}
 .cbi-section.fade-in .cbi-title > div:last-child {
   position: absolute;
   right: 1.25rem;
@@ -3718,6 +3751,22 @@ pre.command-output {
 }
 [data-page="admin-services-npc"] div.cbi-value.nowrap {
   white-space: normal;
+}
+[data-page^="admin-services-openclash"] .tabs > #tool_label {
+  padding-top: 0;
+  padding-bottom: 0;
+  vertical-align: middle;
+}
+[data-page^="admin-services-openclash"] .tabs > #tool_label .tool_label_span {
+  display: inline-flex;
+  align-items: center;
+}
+[data-page^="admin-services-openclash"] .cbi-section-node-tabbed > .cbi-tabcontainer {
+  gap: 0;
+}
+[data-page^="admin-services-openclash"] .cbi-section-node-tabbed > .cbi-tabcontainer > .cbi-value {
+  padding-top: 0.4375rem;
+  padding-bottom: 0.4375rem;
 }
 [data-page^="admin-services-openclash"] .oc {
   --bg-light: #fff;
