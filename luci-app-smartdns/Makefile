@@ -37,4 +37,4 @@ endef
 include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
-$(eval $(call BuildPackage,$(PKG_NAME)))
+$(if $(filter $(PKG_NAME),$(LUCI_BUILD_PACKAGES)),,$(eval $(call BuildPackage,$(PKG_NAME))))

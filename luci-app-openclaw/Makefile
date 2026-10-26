@@ -85,4 +85,4 @@ define Package/$(PKG_NAME)/postinst
 }
 endef
 
-$(eval $(call BuildPackage,$(PKG_NAME)))
+$(if $(filter $(PKG_NAME),$(LUCI_BUILD_PACKAGES)),,$(eval $(call BuildPackage,$(PKG_NAME))))

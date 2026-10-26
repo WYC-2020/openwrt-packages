@@ -10,4 +10,4 @@ LUCI_PKGARCH:=all
 include $(TOPDIR)/feeds/luci/luci.mk
 
 # call BuildPackage - OpenWrt buildroot signature
-$(eval $(call BuildPackage,luci-app-fileassistant))
+$(if $(filter luci-app-fileassistant,$(LUCI_BUILD_PACKAGES)),,$(eval $(call BuildPackage,luci-app-fileassistant)))
