@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kenzok8/tower/internal/generator"
@@ -31,9 +32,68 @@ type Service struct {
 	rulesDir    string
 	ruleCache   *rules.Cache
 	daeValidate func(context.Context, string) error
+
+	// DAE exports read the LAN bridge once per process and reuse the airport
+	// format checks for a short while.
+	lanOnce     sync.Once
+	lanName     string
+	daeSubMu    sync.Mutex
+	daeSubCache map[string]daeSubscriptionCheck
+
+	// ruleDeadline bounds how long one request may spend downloading rule sources.
+	// The LuCI export page triggers preflight as soon as it opens, so an unbounded
+	// download used to hold the admin session for minutes on a slow link.
+	ruleDeadline time.Time
 }
 
 const nativeDAESchemeID = "kenzok8-dae-native"
+
+// maxRuleSetBytes bounds one downloaded rule set.
+const maxRuleSetBytes = 8 << 20
+
+// Rule downloads are bounded per request. The LuCI export page fires a preflight as
+// soon as it opens, so a preflight gets a short leash and fails with a hint instead
+// of holding the admin session; the explicit export action may take much longer.
+const (
+	// Leave time for LuCI to receive the reply before its default RPC deadline.
+	daeRequestTimeout = 18 * time.Second
+
+	// A preflight runs on page open and on every selection change, and uhttpd only
+	// serves three script requests at a time, so it must never sit on downloads.
+	// The preflight is only a hint: keep it cheap and let the export (ten minutes)
+	// download whatever a cold cache is missing.
+	rulePreflightBudget = 8 * time.Second
+	ruleExportBudget    = 10 * time.Minute
+)
+
+// beginRuleBudget arms the download budget for one request. A non-positive budget
+// disables the limit.
+func (s *Service) beginRuleBudget(budget time.Duration) {
+	if budget <= 0 {
+		s.ruleDeadline = time.Time{}
+		return
+	}
+	s.ruleDeadline = time.Now().Add(budget)
+}
+
+// ruleBudgetRemaining reports the time left for rule downloads in this request.
+func (s *Service) ruleBudgetRemaining() (time.Duration, bool) {
+	if s.ruleDeadline.IsZero() {
+		return 0, true
+	}
+	remaining := time.Until(s.ruleDeadline)
+	if remaining <= 0 {
+		return 0, false
+	}
+	return remaining, true
+}
+
+func daeRequestContext(target model.ClientTarget) (context.Context, context.CancelFunc) {
+	if target.Family() == model.FamilyDAE {
+		return context.WithTimeout(context.Background(), daeRequestTimeout)
+	}
+	return context.Background(), func() {}
+}
 
 // New creates a Service.
 func New(st *store.Store) *Service {
@@ -271,9 +331,28 @@ func (s *Service) ExportWithOptions(target model.ClientTarget, protocols []model
 // ExportWithConsent binds a degraded sing-box export to the exact preflight
 // plan and the differences accepted for this generation.
 func (s *Service) ExportWithConsent(target model.ClientTarget, protocols []model.ProxyKind, nodeIDs []string, schemeID string, preferRuleSets bool, planDigest string, acceptedDegradations []string) (string, error) {
+	ctx, cancel := daeRequestContext(target)
+	defer cancel()
+	s.beginRuleBudget(ruleExportBudget)
 	options, err := s.exportOptions(target, protocols, nodeIDs, schemeID, preferRuleSets, false)
 	if err != nil {
 		return "", err
+	}
+	if target.Family() == model.FamilyDAE {
+		snapshot, err := s.loadDAETemplate(ctx, target, true)
+		if err != nil {
+			return "", err
+		}
+		content, result := generator.PrepareDAETemplate(options, snapshot.TemplateID, []byte(snapshot.Content))
+		if result.Status != generator.PreflightExact {
+			return "", &generator.PreflightError{Result: result}
+		}
+		if target == model.ClientDAE {
+			if err := s.validateDAEExport(ctx, target, content); err != nil {
+				return "", fmt.Errorf("设备 dae validate 未通过：%w", err)
+			}
+		}
+		return content, nil
 	}
 	options.PlanDigest = planDigest
 	options.AcceptedDegradations = acceptedDegradations
@@ -289,14 +368,17 @@ func (s *Service) ExportStrict(target model.ClientTarget, protocols []model.Prox
 // ExportStrictWithServiceRegions exports a strict plan with temporary service
 // country choices. The map is request-scoped and is not persisted.
 func (s *Service) ExportStrictWithServiceRegions(target model.ClientTarget, protocols []model.ProxyKind, nodeIDs []string, schemeID string, preferRuleSets bool, planDigest string, regions map[string]string) (string, error) {
+	ctx, cancel := daeRequestContext(target)
+	defer cancel()
 	if len(nodeIDs) == 0 {
 		return "", fmt.Errorf("严格导出至少需要一个已选择的节点")
 	}
+	s.beginRuleBudget(ruleExportBudget)
 	options, err := s.exportOptionsWithServiceRegions(target, protocols, nodeIDs, schemeID, preferRuleSets, true, regions)
 	if err != nil {
 		return "", err
 	}
-	if len(generator.FilterNodes(options.Nodes, protocols)) == 0 {
+	if len(generator.FilterNodes(options.Nodes, protocols)) == 0 && len(options.DAESubscriptions) == 0 {
 		return "", fmt.Errorf("严格导出至少需要一个支持当前目标的已选择节点")
 	}
 	for _, node := range generator.FilterNodes(options.Nodes, protocols) {
@@ -304,19 +386,44 @@ func (s *Service) ExportStrictWithServiceRegions(target model.ClientTarget, prot
 			return "", fmt.Errorf("严格导出包含当前客户端不支持的协议 %s", node.Kind)
 		}
 	}
-	if target.Family() == model.FamilySingBox || target.Family() == model.FamilyDAE {
+	if target.Family() == model.FamilyDAE {
+		snapshot, err := s.loadDAETemplate(ctx, target, false)
+		if err != nil {
+			return "", err
+		}
+		content, result := generator.PrepareDAETemplate(options, snapshot.TemplateID, []byte(snapshot.Content))
+		if result.Status != generator.PreflightExact {
+			return "", &generator.PreflightError{Result: result}
+		}
+		if planDigest == "" || planDigest != result.PlanDigest {
+			return "", fmt.Errorf("严格导出需要与当前预检完全匹配的计划摘要")
+		}
+		if target == model.ClientDAE {
+			if err := s.validateDAEExport(ctx, target, content); err != nil {
+				return "", fmt.Errorf("设备 dae validate 未通过：%w", err)
+			}
+		}
+		return content, nil
+	}
+	if target.Family() == model.FamilySingBox {
+		// The UI may not have a usable preflight digest (cold rule cache, budget hit).
+		// Recompute the plan here with the export budget so the user is never blocked
+		// by a failed hint, and keep the digest binding for the actual render.
+		if planDigest == "" {
+			if result := generator.Preflight(options); result.Status == generator.PreflightUnsupported {
+				return "", &generator.PreflightError{Result: result}
+			} else {
+				planDigest = result.PlanDigest
+			}
+		}
 		options.Strict = true
 		options.PlanDigest = planDigest
 		content, err := generator.Generate(options)
 		if err != nil {
 			return "", err
 		}
-		// Honk 变体用 include system.dae 引用 honk 自带的全局配置，dae validate
-		// 无法在临时目录里解析该引用（报 global required），交由 honk-core 导入时验证。
-		if target == model.ClientDAE {
-			if err := s.daeValidate(context.Background(), content); err != nil {
-				return "", fmt.Errorf("设备 dae validate 未通过：%w", err)
-			}
+		if err := s.validateDAEExport(ctx, target, content); err != nil {
+			return "", fmt.Errorf("设备 dae validate 未通过：%w", err)
 		}
 		return content, nil
 	}
@@ -334,8 +441,19 @@ func (s *Service) ExportStrictWithServiceRegions(target model.ClientTarget, prot
 // PreflightExportWithOptions checks a sing-box-family export using the same
 // selected nodes, scheme, and cached rule resources as the final export.
 func (s *Service) PreflightExportWithOptions(target model.ClientTarget, protocols []model.ProxyKind, nodeIDs []string, schemeID string, preferRuleSets bool) (generator.PreflightResult, error) {
+	ctx, cancel := daeRequestContext(target)
+	defer cancel()
+	s.beginRuleBudget(rulePreflightBudget)
 	options, err := s.exportOptions(target, protocols, nodeIDs, schemeID, preferRuleSets, false)
 	if err != nil {
+		// 预检只是提示，取源失败必须作为可读问题返回，而不是让调用方拿到裸错误
+		if !errors.As(err, new(*inlineSourceError)) {
+			return generator.PreflightResult{
+				Status:  generator.PreflightUnsupported,
+				Issues:  []generator.PreflightIssue{{Code: "resource_unavailable", Severity: "blocking", Location: "resources", Message: err.Error()}},
+				Planned: []generator.PreflightItem{},
+			}, nil
+		}
 		var inlineErr *inlineSourceError
 		if errors.As(err, &inlineErr) {
 			return generator.PreflightResult{
@@ -347,18 +465,14 @@ func (s *Service) PreflightExportWithOptions(target model.ClientTarget, protocol
 		return generator.PreflightResult{}, err
 	}
 	if target.Family() == model.FamilyDAE {
-		result := generator.DAEPreflight(options)
-		if result.Status == generator.PreflightExact {
-			options.Strict = true
-			options.PlanDigest = result.PlanDigest
-			content, generateErr := generator.Generate(options)
-			if generateErr != nil {
-				return generator.PreflightResult{Status: generator.PreflightUnsupported, PlanDigest: result.PlanDigest, Issues: []generator.PreflightIssue{{Code: "dae_render", Severity: "blocking", Location: "export", Message: "DAE 配置生成失败"}}, Planned: result.Planned}, nil
-			}
-			if target == model.ClientDAE {
-				if validateErr := s.daeValidate(context.Background(), content); validateErr != nil {
-					return generator.PreflightResult{Status: generator.PreflightUnsupported, PlanDigest: result.PlanDigest, Issues: []generator.PreflightIssue{{Code: "dae_validate", Severity: "blocking", Location: "export", Message: "设备 dae validate 未通过；当前 DAT 标签或配置需要修正"}}, Planned: result.Planned}, nil
-				}
+		snapshot, err := s.loadDAETemplate(ctx, target, true)
+		if err != nil {
+			return daeTemplateErrorResult(err), nil
+		}
+		content, result := generator.PrepareDAETemplate(options, snapshot.TemplateID, []byte(snapshot.Content))
+		if result.Status == generator.PreflightExact && target == model.ClientDAE {
+			if validateErr := s.validateDAEExport(ctx, target, content); validateErr != nil {
+				return daeTemplateErrorResult(fmt.Errorf("设备 dae validate 未通过")), nil
 			}
 		}
 		return result, nil
@@ -374,17 +488,20 @@ func (s *Service) PreflightExportStrict(target model.ClientTarget, protocols []m
 // PreflightExportStrictWithServiceRegions validates a strict request with
 // temporary service country choices. It never saves those choices.
 func (s *Service) PreflightExportStrictWithServiceRegions(target model.ClientTarget, protocols []model.ProxyKind, nodeIDs []string, schemeID string, preferRuleSets bool, regions map[string]string) (generator.PreflightResult, error) {
+	ctx, cancel := daeRequestContext(target)
+	defer cancel()
+	s.beginRuleBudget(rulePreflightBudget)
 	options, err := s.exportOptionsWithServiceRegions(target, protocols, nodeIDs, schemeID, preferRuleSets, true, regions)
 	if err != nil {
 		var inlineErr *inlineSourceError
 		if errors.As(err, &inlineErr) {
 			return generator.PreflightResult{Status: generator.PreflightUnsupported, Issues: []generator.PreflightIssue{{Code: inlineErr.code, Severity: "blocking", Location: inlineErr.location, Message: inlineErr.message}}, Planned: []generator.PreflightItem{}}, nil
 		}
-		return generator.PreflightResult{}, err
+		return generator.PreflightResult{Status: generator.PreflightUnsupported, Issues: []generator.PreflightIssue{{Code: "resource_unavailable", Severity: "blocking", Location: "resources", Message: err.Error()}}, Planned: []generator.PreflightItem{}}, nil
 	}
 	options.Strict = true
 	filtered := generator.FilterNodes(options.Nodes, protocols)
-	if len(filtered) == 0 {
+	if len(filtered) == 0 && len(options.DAESubscriptions) == 0 {
 		return generator.PreflightResult{Status: generator.PreflightUnsupported, Issues: []generator.PreflightIssue{{Code: "nodes_empty", Severity: "blocking", Location: "nodes", Message: "严格导出至少需要一个支持当前目标的已选择节点"}}, Planned: []generator.PreflightItem{}}, nil
 	}
 	for _, node := range filtered {
@@ -393,18 +510,14 @@ func (s *Service) PreflightExportStrictWithServiceRegions(target model.ClientTar
 		}
 	}
 	if target.Family() == model.FamilyDAE {
-		result := generator.DAEPreflight(options)
-		if result.Status != generator.PreflightExact {
-			return result, nil
+		snapshot, err := s.loadDAETemplate(ctx, target, true)
+		if err != nil {
+			return daeTemplateErrorResult(err), nil
 		}
-		options.PlanDigest = result.PlanDigest
-		content, generateErr := generator.Generate(options)
-		if generateErr != nil {
-			return generator.PreflightResult{Status: generator.PreflightUnsupported, PlanDigest: result.PlanDigest, Issues: []generator.PreflightIssue{{Code: "dae_render", Severity: "blocking", Location: "export", Message: "DAE 配置生成失败"}}, Planned: result.Planned}, nil
-		}
-		if target == model.ClientDAE {
-			if validateErr := s.daeValidate(context.Background(), content); validateErr != nil {
-				return generator.PreflightResult{Status: generator.PreflightUnsupported, PlanDigest: result.PlanDigest, Issues: []generator.PreflightIssue{{Code: "dae_validate", Severity: "blocking", Location: "export", Message: "设备 dae validate 未通过；当前 DAT 标签或配置需要修正"}}, Planned: result.Planned}, nil
+		content, result := generator.PrepareDAETemplate(options, snapshot.TemplateID, []byte(snapshot.Content))
+		if result.Status == generator.PreflightExact && target == model.ClientDAE {
+			if validateErr := s.validateDAEExport(ctx, target, content); validateErr != nil {
+				return daeTemplateErrorResult(fmt.Errorf("设备 dae validate 未通过")), nil
 			}
 		}
 		return result, nil
@@ -451,6 +564,9 @@ func (s *Service) exportOptions(target model.ClientTarget, protocols []model.Pro
 }
 
 func (s *Service) exportOptionsWithServiceRegions(target model.ClientTarget, protocols []model.ProxyKind, nodeIDs []string, schemeID string, preferRuleSets, strict bool, serviceRegions map[string]string) (generator.Options, error) {
+	if s.ruleDeadline.IsZero() {
+		s.beginRuleBudget(rulePreflightBudget)
+	}
 	var nodes []model.ProxyNode
 	var err error
 	if strict && len(nodeIDs) == 0 {
@@ -460,6 +576,9 @@ func (s *Service) exportOptionsWithServiceRegions(target model.ClientTarget, pro
 	}
 	if err != nil {
 		return generator.Options{}, err
+	}
+	if target.Family() == model.FamilyDAE {
+		return s.daeTemplateOptions(target, nodes, protocols, strict)
 	}
 	var scheme *model.RuleScheme
 	if schemeID != "" {
@@ -501,18 +620,9 @@ func (s *Service) exportOptionsWithServiceRegions(target model.ClientTarget, pro
 					if _, loaded := lines[sourceURL]; loaded {
 						continue
 					}
-					cached, cacheErr := s.ruleCache.LinesLimited(sourceURL, 8<<20)
-					if cacheErr == nil {
-						cacheErr = generator.ValidateMRSYAMLSource(*resource, []byte(strings.Join(cached, "\n")))
-					}
-					if cacheErr != nil {
-						cacheErr = s.ruleCache.DownloadWithPolicy(sourceURL, 8<<20, "raw.githubusercontent.com", func(body []byte) error {
-							return generator.ValidateMRSYAMLSource(*resource, body)
-						})
-						if cacheErr == nil {
-							cached, cacheErr = s.ruleCache.LinesLimited(sourceURL, 8<<20)
-						}
-					}
+					cached, cacheErr := s.ruleSourceLines(sourceURL, 8<<20, "raw.githubusercontent.com", func(body []byte) error {
+						return generator.ValidateMRSYAMLSource(*resource, body)
+					})
 					if cacheErr != nil {
 						return generator.Options{}, fmt.Errorf("获取 MRS 对应的 YAML 规则源 %s 失败：%w", sourceURL, cacheErr)
 					}
@@ -530,18 +640,9 @@ func (s *Service) exportOptionsWithServiceRegions(target model.ClientTarget, pro
 					cached, alreadyLoaded := seenInline[sourceURL]
 					if !alreadyLoaded {
 						var cacheErr error
-						cached, cacheErr = s.ruleCache.LinesLimited(sourceURL, 4<<20)
+						cached, cacheErr = s.clashooInlineLines(sourceURL)
 						if cacheErr != nil {
-							cacheErr = s.ruleCache.DownloadWithPolicy(sourceURL, 4<<20, "raw.githubusercontent.com", func(body []byte) error {
-								_, err := generator.ParseClashooInlineRuleSet(body)
-								return err
-							})
-							if cacheErr == nil {
-								cached, cacheErr = s.ruleCache.LinesLimited(sourceURL, 4<<20)
-							}
-						}
-						if cacheErr != nil {
-							return generator.Options{}, &inlineSourceError{code: "resource_cache", location: location, message: fmt.Sprintf("获取 Clashoo inline 规则源 %s 失败：%v", sourceURL, cacheErr)}
+							return generator.Options{}, &inlineSourceError{code: "resource_cache", location: location, message: fmt.Sprintf("获取 Clashoo inline 规则源 %s 失败：%v（该规则源只存在于 MetaCubeX 的 sing 分支，直连不通时可换用不依赖 MRS 的方案，或稍后重试）", sourceURL, cacheErr)}
 						}
 						body := []byte(strings.Join(cached, "\n"))
 						if len(body) > 4<<20 {
@@ -560,29 +661,131 @@ func (s *Service) exportOptionsWithServiceRegions(target model.ClientTarget, pro
 					continue
 				}
 			}
-			if cached, err := s.ruleCache.Lines(resource.URL); err == nil {
-				lines[resource.URL] = cached
+			// 保持远程链接的目标不需要规则集内容，跳过以免每个规则集都白等一次网络。
+			if !generator.RuleSetNeedsLines(target, *resource, preferRuleSets) {
 				continue
 			}
-			// 首次导出时惰性下载未缓存的规则集，避免预检因冷缓存失败。
-			if s.ruleCache.Download(resource.URL) == nil {
-				if cached, err := s.ruleCache.Lines(resource.URL); err == nil {
-					lines[resource.URL] = cached
-					continue
-				}
+			// 读取顺序按代价排：缓存 → 随包分发的本地列表 → 网络（直连失败会走镜像）。
+			// 本地列表免费且离线可用，放在网络之前可以避免每个规则集都先等一次超时。
+			if cached, ok := s.ruleSourceLinesCached(resource.URL, maxRuleSetBytes); ok {
+				lines[resource.URL] = cached
+				continue
 			}
 			if name := rules.LocalRuleFilename(resource.URL); name != "" {
 				if b, err := os.ReadFile(filepath.Join(s.rulesDir, name)); err == nil {
 					lines[resource.URL] = strings.Split(string(b), "\n")
+					continue
 				}
+			}
+			if cached, err := s.ruleSourceLines(resource.URL, maxRuleSetBytes, "", nil); err == nil {
+				lines[resource.URL] = cached
 			}
 		}
 	}
-	return generator.Options{
+	options := generator.Options{
 		Target: target, Nodes: nodes, Protocols: protocols, Scheme: scheme,
 		PreferRuleSets: preferRuleSets, RuleSetLines: lines, Strict: strict,
 		ServiceRegions: serviceRegions,
-	}, nil
+	}
+	if target.Family() == model.FamilyDAE {
+		// dae only accepts explicit interface names, so the LAN bridge has to be
+		// read from the running network configuration of this device.
+		options.LANInterface = s.lanInterfaceForDAE()
+		var covered []string
+		options.DAESubscriptions, options.DAESubscriptionFallbacks, covered = s.daeSubscriptionPlan(target, nodes)
+		if len(covered) > 0 {
+			// Nodes the core fetches itself must not be inlined as well.
+			passthrough := make(map[string]bool, len(covered))
+			for _, id := range covered {
+				passthrough[id] = true
+			}
+			inlined := make([]model.ProxyNode, 0, len(nodes))
+			for _, node := range nodes {
+				if !passthrough[node.SourceID] {
+					inlined = append(inlined, node)
+				}
+			}
+			options.Nodes = inlined
+		}
+	}
+	return options, nil
+}
+
+// ruleMirrorPrefixes are CN-reachable mirrors for raw.githubusercontent.com, tried in
+// order only after the direct download fails. Clashoo itself ships its core downloads
+// through the same mirror for the same reason.
+var ruleMirrorPrefixes = []string{"https://gh-proxy.com/", "https://ghfast.top/"}
+
+// ruleSourceCandidate is one URL to try for a rule source, plus the host that the
+// download is pinned to.
+type ruleSourceCandidate struct {
+	url  string
+	host string
+}
+
+// ruleSourceCandidates lists the direct URL followed by the mirror URLs.
+func ruleSourceCandidates(sourceURL string) []ruleSourceCandidate {
+	out := make([]ruleSourceCandidate, 0, len(ruleMirrorPrefixes)+1)
+	out = append(out, ruleSourceCandidate{url: sourceURL, host: "raw.githubusercontent.com"})
+	for _, prefix := range ruleMirrorPrefixes {
+		mirrored := prefix + sourceURL
+		if parsed, err := url.Parse(mirrored); err == nil && parsed.Hostname() != "" {
+			out = append(out, ruleSourceCandidate{url: mirrored, host: parsed.Hostname()})
+		}
+	}
+	return out
+}
+
+// ruleSourceLinesCached returns cached lines for a rule source from the direct URL or
+// any mirror, without touching the network.
+func (s *Service) ruleSourceLinesCached(sourceURL string, maxBytes int) ([]string, bool) {
+	for _, candidate := range ruleSourceCandidates(sourceURL) {
+		if lines, err := s.ruleCache.LinesLimited(candidate.url, maxBytes); err == nil {
+			return lines, true
+		}
+	}
+	return nil, false
+}
+
+// ruleSourceLines returns rule-source lines, reading the cache first and downloading
+// (direct, then mirrors) when nothing is cached. validate runs on fresh bodies only.
+func (s *Service) ruleSourceLines(sourceURL string, maxBytes int, allowedHost string, validate func([]byte) error) ([]string, error) {
+	if lines, ok := s.ruleSourceLinesCached(sourceURL, maxBytes); ok {
+		return lines, nil
+	}
+	var firstErr error
+	for _, candidate := range ruleSourceCandidates(sourceURL) {
+		if _, ok := s.ruleBudgetRemaining(); !ok {
+			return nil, fmt.Errorf("规则源下载超出本次请求的时间预算，请稍后重试；已缓存的规则集不受影响")
+		}
+		host := candidate.host
+		if allowedHost == "" {
+			host = ""
+		}
+		if err := s.ruleCache.DownloadWithPolicy(candidate.url, maxBytes, host, validate); err != nil {
+			if firstErr == nil && candidate.url == sourceURL {
+				firstErr = err
+			}
+			continue
+		}
+		if lines, err := s.ruleCache.LinesLimited(candidate.url, maxBytes); err == nil {
+			return lines, nil
+		}
+	}
+	if firstErr != nil {
+		return nil, firstErr
+	}
+	return nil, fmt.Errorf("规则源 %s 无法从直连或镜像获取", sourceURL)
+}
+
+// clashooInlineLines loads one Clashoo inline rule source: cached first (direct URL
+// then any mirror), then the direct download, then the mirrors.
+func (s *Service) clashooInlineLines(sourceURL string) ([]string, error) {
+	const maxBytes = 4 << 20
+	return s.ruleSourceLines(sourceURL, maxBytes, "raw.githubusercontent.com", func(body []byte) error {
+		_, err := generator.ParseClashooInlineRuleSet(body)
+		return err
+	})
 }
 
 // Schemes returns the bundled presets followed by user-imported schemes.
@@ -656,8 +859,8 @@ func (s *Service) SchemeSummaries() ([]SchemeSummary, error) {
 			}
 			summary.RuleSets++
 			if sourceURL, mapped := generator.MRSYAMLSourceURL(*rule.Resource); mapped {
-				lines, err := s.ruleCache.LinesLimited(sourceURL, 8<<20)
-				if err != nil {
+				lines, ok := s.ruleSourceLinesCached(sourceURL, 8<<20)
+				if !ok {
 					summary.Cached = false
 					continue
 				}
